@@ -55,7 +55,7 @@ El proyecto utiliza una estructura Maven multi-módulo:
               ▼                ▼                ▼
      ┌────────────────┐ ┌───────────────┐ ┌───────────────┐
      │    Generador   │ │   Operador    │ │    Pantalla   │
-     │ turnos-generador│ │ turnos-operador│ │ turnos-pantalla│
+     │turnos-generador│ │turnos-operador│ │turnos-pantalla│
      └────────────────┘ └───────────────┘ └───────────────┘
 ```
 
