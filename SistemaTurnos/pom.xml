@@ -19,6 +19,7 @@
 
     <modules>
         <module>turnos-common</module>
+        <module>turnos-server</module>
     </modules>
 
 </project>
