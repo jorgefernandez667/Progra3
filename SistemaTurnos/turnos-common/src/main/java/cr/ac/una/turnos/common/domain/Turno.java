@@ -42,4 +42,43 @@ public class Turno {
 
         estado = EstadoTurno.FINALIZADO;
     }
+    public String getCodigo() {
+    return codigo;
+}
+
+public void setCodigo(String codigo) {
+    this.codigo = codigo;
+}
+
+public Servicio getServicio() {
+    return servicio;
+}
+
+public void setServicio(Servicio servicio) {
+    this.servicio = servicio;
+}
+
+public PrioridadTurno getPrioridad() {
+    return prioridad;
+}
+
+public void setPrioridad(PrioridadTurno prioridad) {
+    this.prioridad = prioridad;
+}
+
+public EstadoTurno getEstado() {
+    return estado;
+}
+
+public void setEstado(EstadoTurno estado) {
+    this.estado = estado;
+}
+
+public LocalDateTime getFechaGeneracion() {
+    return fechaGeneracion;
+}
+
+public void setFechaGeneracion(LocalDateTime fechaGeneracion) {
+    this.fechaGeneracion = fechaGeneracion;
+}
 }

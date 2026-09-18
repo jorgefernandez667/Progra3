@@ -72,4 +72,30 @@ public class TurnoService {
     public List<Turno> obtenerTurnos() {
         return List.copyOf(turnos);
     }
+    
+    public List<Turno> obtenerTurnosPendientes() {
+    return turnos.stream()
+            .filter(turno -> turno.getEstado() == EstadoTurno.EN_ESPERA)
+            .toList();
+}
+    
+    public Turno obtenerSiguienteTurno() {
+    return turnos.stream()
+            .filter(turno -> turno.getEstado() == EstadoTurno.EN_ESPERA)
+            .findFirst()
+            .orElse(null);
+}
+    
+    public Turno llamarSiguienteTurno() {
+    Turno siguiente = obtenerSiguienteTurno();
+
+    if (siguiente == null) {
+        return null;
+    }
+
+    siguiente.llamar();
+
+    return siguiente;
+}
+    
 }

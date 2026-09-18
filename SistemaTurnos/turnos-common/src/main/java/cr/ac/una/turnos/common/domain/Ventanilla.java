@@ -49,4 +49,9 @@ public class Ventanilla {
         turnoActual = null;
         estado = EstadoVentanilla.DISPONIBLE;
     }
+    
+    public Turno getTurnoActual() {
+    return turnoActual;
+}
+    
 }
