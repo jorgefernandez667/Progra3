@@ -1,4 +1,4 @@
-package cr.ac.una.turnos.common.service;
+package cr.ac.una.turnos.server.service;
 
 import cr.ac.una.turnos.common.domain.Servicio;
 import cr.ac.una.turnos.common.domain.Turno;
@@ -7,6 +7,7 @@ import cr.ac.una.turnos.common.enums.PrioridadTurno;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import cr.ac.una.turnos.common.domain.Ventanilla;
 
 public class TurnoService {
 
@@ -94,6 +95,25 @@ public class TurnoService {
     }
 
     siguiente.llamar();
+
+    return siguiente;
+}
+ 
+    public Turno asignarSiguienteTurno(Ventanilla ventanilla) {
+
+    if (ventanilla == null) {
+        throw new IllegalArgumentException(
+                "La ventanilla no puede ser nula."
+        );
+    }
+
+    Turno siguiente = obtenerSiguienteTurno();
+
+    if (siguiente == null) {
+        return null;
+    }
+
+    ventanilla.asignarTurno(siguiente);
 
     return siguiente;
 }

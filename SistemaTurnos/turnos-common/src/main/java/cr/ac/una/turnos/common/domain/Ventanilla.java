@@ -54,4 +54,11 @@ public class Ventanilla {
     return turnoActual;
 }
     
+    public EstadoVentanilla getEstado() {
+    return estado;
+}
+
+public void setEstado(EstadoVentanilla estado) {
+    this.estado = estado;
+}
 }
