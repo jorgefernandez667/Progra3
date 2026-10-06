@@ -2,12 +2,13 @@ package cr.ac.una.turnos.server.service;
 
 import cr.ac.una.turnos.common.domain.Servicio;
 import cr.ac.una.turnos.common.domain.Turno;
+import cr.ac.una.turnos.common.domain.Ventanilla;
 import cr.ac.una.turnos.common.enums.EstadoTurno;
 import cr.ac.una.turnos.common.enums.PrioridadTurno;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import cr.ac.una.turnos.common.domain.Ventanilla;
 
 public class TurnoService {
 
@@ -42,7 +43,7 @@ public class TurnoService {
         String codigo = generarCodigo(servicio);
 
         Turno turno = new Turno();
-        
+
         turno.setCodigo(codigo);
         turno.setServicio(servicio);
         turno.setPrioridad(prioridad);
@@ -60,7 +61,8 @@ public class TurnoService {
 
         long cantidad = turnos.stream()
                 .filter(t -> t.getServicio() != null)
-                .filter(t -> prefijo.equals(t.getServicio().getCodigo()))
+                .filter(t -> prefijo.equals(
+                        t.getServicio().getCodigo()))
                 .count();
 
         return String.format(
@@ -73,49 +75,87 @@ public class TurnoService {
     public List<Turno> obtenerTurnos() {
         return List.copyOf(turnos);
     }
-    
-    public List<Turno> obtenerTurnosPendientes() {
-    return turnos.stream()
-            .filter(turno -> turno.getEstado() == EstadoTurno.EN_ESPERA)
-            .toList();
-}
-    
-    public Turno obtenerSiguienteTurno() {
-    return turnos.stream()
-            .filter(turno -> turno.getEstado() == EstadoTurno.EN_ESPERA)
-            .findFirst()
-            .orElse(null);
-}
-    
-    public Turno llamarSiguienteTurno() {
-    Turno siguiente = obtenerSiguienteTurno();
 
-    if (siguiente == null) {
-        return null;
+    public List<Turno> obtenerTurnosPendientes() {
+
+        return turnos.stream()
+                .filter(turno ->
+                        turno.getEstado() == EstadoTurno.EN_ESPERA)
+                .toList();
     }
 
-    siguiente.llamar();
+    public Turno obtenerSiguienteTurno() {
 
-    return siguiente;
-}
- 
+        return turnos.stream()
+                .filter(turno ->
+                        turno.getEstado() == EstadoTurno.EN_ESPERA)
+                .findFirst()
+                .orElse(null);
+    }
+
+    public Turno llamarSiguienteTurno() {
+
+        Turno siguiente = obtenerSiguienteTurno();
+
+        if (siguiente == null) {
+            return null;
+        }
+
+        siguiente.llamar();
+
+        return siguiente;
+    }
+
     public Turno asignarSiguienteTurno(Ventanilla ventanilla) {
 
-    if (ventanilla == null) {
-        throw new IllegalArgumentException(
-                "La ventanilla no puede ser nula."
-        );
+        if (ventanilla == null) {
+            throw new IllegalArgumentException(
+                    "La ventanilla no puede ser nula."
+            );
+        }
+
+        Turno siguiente = obtenerSiguienteTurno();
+
+        if (siguiente == null) {
+            return null;
+        }
+
+        ventanilla.asignarTurno(siguiente);
+
+        return siguiente;
     }
 
-    Turno siguiente = obtenerSiguienteTurno();
+    public void iniciarAtencion(Ventanilla ventanilla) {
 
-    if (siguiente == null) {
-        return null;
+        if (ventanilla == null) {
+            throw new IllegalArgumentException(
+                    "La ventanilla no puede ser nula."
+            );
+        }
+
+        if (ventanilla.getTurnoActual() == null) {
+            throw new IllegalStateException(
+                    "La ventanilla no tiene un turno asignado."
+            );
+        }
+
+        ventanilla.iniciarAtencion();
     }
 
-    ventanilla.asignarTurno(siguiente);
+    public void finalizarAtencion(Ventanilla ventanilla) {
 
-    return siguiente;
-}
-    
+        if (ventanilla == null) {
+            throw new IllegalArgumentException(
+                    "La ventanilla no puede ser nula."
+            );
+        }
+
+        if (ventanilla.getTurnoActual() == null) {
+            throw new IllegalStateException(
+                    "La ventanilla no tiene un turno asignado."
+            );
+        }
+
+        ventanilla.finalizarAtencion();
+    }
 }
