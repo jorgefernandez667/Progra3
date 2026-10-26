@@ -7,8 +7,18 @@ public class Ventanilla {
     private int id;
     private String nombre;
     private EstadoVentanilla estado;
-    private Usuario usuario;
     private Turno turnoActual;
+
+    public Ventanilla() {
+        this.estado = EstadoVentanilla.DISPONIBLE;
+    }
+
+    public Ventanilla(int id, String nombre,
+                      EstadoVentanilla estado) {
+        this.id = id;
+        this.nombre = nombre;
+        this.estado = estado;
+    }
 
     public void asignarTurno(Turno turno) {
         if (turno == null) {
@@ -49,16 +59,36 @@ public class Ventanilla {
         turnoActual = null;
         estado = EstadoVentanilla.DISPONIBLE;
     }
-    
-    public Turno getTurnoActual() {
-    return turnoActual;
-}
-    
-    public EstadoVentanilla getEstado() {
-    return estado;
-}
 
-public void setEstado(EstadoVentanilla estado) {
-    this.estado = estado;
-}
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getNombre() {
+        return nombre;
+    }
+
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
+
+    public EstadoVentanilla getEstado() {
+        return estado;
+    }
+
+    public void setEstado(EstadoVentanilla estado) {
+        this.estado = estado;
+    }
+
+    public Turno getTurnoActual() {
+        return turnoActual;
+    }
+
+    public void setTurnoActual(Turno turnoActual) {
+        this.turnoActual = turnoActual;
+    }
 }

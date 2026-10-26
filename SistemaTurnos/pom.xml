@@ -20,6 +20,7 @@
     <modules>
         <module>turnos-common</module>
         <module>turnos-server</module>
+        <module>turnos-generador</module>
     </modules>
 
 </project>
