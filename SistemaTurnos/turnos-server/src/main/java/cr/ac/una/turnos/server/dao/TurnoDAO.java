@@ -10,6 +10,12 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Date;
+import cr.ac.una.turnos.common.domain.Servicio;
+import cr.ac.una.turnos.common.enums.EstadoTurno;
+import cr.ac.una.turnos.common.enums.PrioridadTurno;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class TurnoDAO {
 
@@ -147,7 +153,7 @@ public class TurnoDAO {
         }
     }
 
-public void actualizar(Turno turno) throws java.sql.SQLException {
+ public void actualizar(Turno turno) throws java.sql.SQLException {
     if (turno == null) {
         throw new IllegalArgumentException(
                 "El turno no puede ser nulo."
@@ -205,9 +211,9 @@ public void actualizar(Turno turno) throws java.sql.SQLException {
             );
         }
     }
-}
+ }
 
-public int contarPorPrefijo(String prefijo)
+ public int contarPorPrefijo(String prefijo)
         throws SQLException {
 
     String sql = """
@@ -230,6 +236,92 @@ public int contarPorPrefijo(String prefijo)
     }
 
     return 0;
+ }
+
+public List<Turno> obtenerTurnosPendientes() throws SQLException {
+
+    String sql = """
+        SELECT t.id_turno, t.codigo, t.estado,
+               t.fecha_generacion, t.hora_generacion,
+               t.hora_llamado, t.hora_inicio_atencion,
+               t.hora_fin_atencion, t.id_ventanilla,
+               t.id_funcionario,
+               s.id_servicio, s.prefijo, s.nombre,
+               p.nombre AS prioridad
+        FROM turno t
+        INNER JOIN servicio s
+            ON t.id_servicio = s.id_servicio
+        INNER JOIN prioridad p
+            ON t.id_prioridad = p.id_prioridad
+        WHERE t.estado = 'EN_ESPERA'
+        ORDER BY t.hora_generacion ASC
+        """;
+
+    List<Turno> resultado = new ArrayList<>();
+
+    try (Connection conexion = DatabaseConfig.obtenerConexion();
+         PreparedStatement sentencia = conexion.prepareStatement(sql);
+         ResultSet rs = sentencia.executeQuery()) {
+
+        while (rs.next()) {
+            Servicio servicio = new Servicio(
+        rs.getInt("id_servicio"),
+        rs.getString("prefijo"),
+        rs.getString("nombre"),
+        null,
+        true
+);
+
+            Turno turno = new Turno();
+            turno.setId(rs.getInt("id_turno"));
+            turno.setCodigo(rs.getString("codigo"));
+            turno.setServicio(servicio);
+            turno.setPrioridad(
+                    PrioridadTurno.valueOf(rs.getString("prioridad"))
+            );
+            turno.setEstado(
+                    EstadoTurno.valueOf(rs.getString("estado"))
+            );
+
+            Timestamp generacion = rs.getTimestamp("hora_generacion");
+            if (generacion != null) {
+                turno.setFechaGeneracion(
+                        generacion.toLocalDateTime()
+                );
+            }
+
+            Timestamp llamado = rs.getTimestamp("hora_llamado");
+            if (llamado != null) {
+                turno.setFechaLlamado(llamado.toLocalDateTime());
+            }
+
+            Timestamp inicio = rs.getTimestamp("hora_inicio_atencion");
+            if (inicio != null) {
+                turno.setFechaInicioAtencion(
+                        inicio.toLocalDateTime()
+                );
+            }
+
+            Timestamp fin = rs.getTimestamp("hora_fin_atencion");
+            if (fin != null) {
+                turno.setFechaFinAtencion(fin.toLocalDateTime());
+            }
+
+            int idVentanilla = rs.getInt("id_ventanilla");
+            if (!rs.wasNull()) {
+                turno.setIdVentanilla(idVentanilla);
+            }
+
+            int idFuncionario = rs.getInt("id_funcionario");
+            if (!rs.wasNull()) {
+                turno.setIdFuncionario(idFuncionario);
+            }
+
+            resultado.add(turno);
+        }
+    }
+
+    return resultado;
 }
 
 }

@@ -18,7 +18,6 @@
    
    <dependencies>
 
-        <!-- Módulo común del sistema -->
         <dependency>
             <groupId>cr.ac.una</groupId>
             <artifactId>turnos-server</artifactId>

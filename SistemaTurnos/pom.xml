@@ -21,6 +21,8 @@
         <module>turnos-common</module>
         <module>turnos-server</module>
         <module>turnos-generador</module>
+        <module>turnos-operador</module>
+        <module>turnos-pantalla</module>
     </modules>
 
 </project>

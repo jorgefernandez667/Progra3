@@ -1,11 +1,12 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
- */
+
 package cr.ac.una.turnos.generador;
 
 import javax.swing.*;
 import java.awt.*;
+import cr.ac.una.turnos.common.domain.Servicio;
+import cr.ac.una.turnos.common.domain.Turno;
+import cr.ac.una.turnos.common.enums.PrioridadTurno;
+import cr.ac.una.turnos.server.service.TurnoService;
 
 public class GeneradorTurnosFrame extends javax.swing.JFrame {
     
@@ -14,6 +15,9 @@ public class GeneradorTurnosFrame extends javax.swing.JFrame {
     /**
      * Creates new form GeneradorTurnosFrame
      */
+    
+    private final TurnoService turnoService = new TurnoService();
+    
     public GeneradorTurnosFrame() {
         initComponents();
         configurarVentana();
@@ -96,33 +100,87 @@ public class GeneradorTurnosFrame extends javax.swing.JFrame {
         setContentPane(panelPrincipal);
     }
     
-    private void generarTurno() {
-        String servicio = (String) comboServicios.getSelectedItem();
 
-        if (servicio == null) {
+private void generarTurno() {
+    String servicioSeleccionado =
+            (String) comboServicios.getSelectedItem();
+
+    if (servicioSeleccionado == null) {
+        JOptionPane.showMessageDialog(
+                this,
+                "Debe seleccionar un servicio.",
+                "Validación",
+                JOptionPane.WARNING_MESSAGE
+        );
+        return;
+    }
+
+    int idServicio;
+    String prefijo;
+
+    switch (servicioSeleccionado) {
+        case "Información general" -> {
+            idServicio = 1;
+            prefijo = "A";
+        }
+        case "Trámites" -> {
+            idServicio = 2;
+            prefijo = "B";
+        }
+        case "Pagos" -> {
+            idServicio = 3;
+            prefijo = "C";
+        }
+        case "Atención preferencial" -> {
+            idServicio = 4;
+            prefijo = "D";
+        }
+        default -> {
             JOptionPane.showMessageDialog(
                     this,
-                    "Debe seleccionar un servicio.",
-                    "Validación",
-                    JOptionPane.WARNING_MESSAGE
+                    "El servicio seleccionado no es válido."
             );
             return;
         }
-
-        String prefijo = switch (servicio) {
-            case "Información general" -> "A";
-            case "Trámites" -> "B";
-            case "Pagos" -> "C";
-            case "Atención preferencial" -> "D";
-            default -> "";
-        };
-
-        etiquetaTurno.setText(prefijo + "---");
-        etiquetaMensaje.setText(
-                "Servicio seleccionado: " + servicio
-        );
     }
-    
+
+    Servicio servicio = new Servicio();
+    servicio.setId(idServicio);
+    servicio.setCodigo(prefijo);
+    servicio.setNombre(servicioSeleccionado);
+    servicio.setActivo(true);
+
+    try {
+        Turno turno = turnoService.generarTurno(
+                servicio,
+                PrioridadTurno.NORMAL
+        );
+
+        etiquetaTurno.setText(turno.getCodigo());
+        etiquetaMensaje.setText(
+                "Turno generado: " + servicioSeleccionado
+        );
+
+        JOptionPane.showMessageDialog(
+                this,
+                "Turno generado y guardado correctamente: "
+                        + turno.getCodigo(),
+                "Turno generado",
+                JOptionPane.INFORMATION_MESSAGE
+        );
+
+    } catch (Exception e) {
+        JOptionPane.showMessageDialog(
+                this,
+                "No se pudo generar el turno:\n"
+                        + e.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE
+        );
+        e.printStackTrace();
+    }
+}
+
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
