@@ -253,5 +253,9 @@ public synchronized void finalizarAtencionTurno(Turno turno) {
         );
     }
 }
+public synchronized List<Turno> consultarUltimosTurnosLlamados()
+        throws SQLException {
+    return turnoDAO.obtenerUltimosTurnosLlamados();
+}
 
 }

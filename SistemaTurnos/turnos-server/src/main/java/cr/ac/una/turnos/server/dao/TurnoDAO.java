@@ -16,6 +16,8 @@ import cr.ac.una.turnos.common.enums.PrioridadTurno;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.sql.Timestamp;
+import cr.ac.una.turnos.common.enums.EstadoTurno;
 
 public class TurnoDAO {
 
@@ -322,6 +324,52 @@ public List<Turno> obtenerTurnosPendientes() throws SQLException {
     }
 
     return resultado;
+}
+public List<Turno> obtenerUltimosTurnosLlamados() throws SQLException {
+    List<Turno> turnos = new ArrayList<>();
+
+    String sql = """
+        SELECT codigo, estado, id_ventanilla, hora_llamado,
+               hora_inicio_atencion, hora_fin_atencion
+        FROM turno
+        WHERE estado IN ('LLAMADO', 'EN_ATENCION', 'FINALIZADO')
+        ORDER BY hora_llamado DESC
+        LIMIT 5
+        """;
+
+    try (Connection conexion = DatabaseConfig.obtenerConexion();
+         PreparedStatement ps = conexion.prepareStatement(sql);
+         ResultSet rs = ps.executeQuery()) {
+
+        while (rs.next()) {
+            Turno turno = new Turno();
+
+            turno.setCodigo(rs.getString("codigo"));
+            turno.setEstado(EstadoTurno.valueOf(rs.getString("estado")));
+
+            int idVentanilla = rs.getInt("id_ventanilla");
+            turno.setIdVentanilla(rs.wasNull() ? null : idVentanilla);
+
+            Timestamp llamado = rs.getTimestamp("hora_llamado");
+            if (llamado != null) {
+                turno.setFechaLlamado(llamado.toLocalDateTime());
+            }
+
+            Timestamp inicio = rs.getTimestamp("hora_inicio_atencion");
+            if (inicio != null) {
+                turno.setFechaInicioAtencion(inicio.toLocalDateTime());
+            }
+
+            Timestamp fin = rs.getTimestamp("hora_fin_atencion");
+            if (fin != null) {
+                turno.setFechaFinAtencion(fin.toLocalDateTime());
+            }
+
+            turnos.add(turno);
+        }
+    }
+
+    return turnos;
 }
 
 }
