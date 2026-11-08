@@ -2,7 +2,9 @@ package cr.ac.una.turnos.server.dao;
 
 import cr.ac.una.turnos.common.domain.Turno;
 import cr.ac.una.turnos.server.config.DatabaseConfig;
-
+import java.time.LocalDateTime;
+import cr.ac.una.turnos.common.domain.Servicio;
+import cr.ac.una.turnos.common.enums.PrioridadTurno;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -371,5 +373,208 @@ public List<Turno> obtenerUltimosTurnosLlamados() throws SQLException {
 
     return turnos;
 }
+
+public Turno llamarSiguienteTurno(
+        int idFuncionario,
+        int idVentanilla) throws SQLException {
+
+    String sqlBuscar = """
+        SELECT t.id_turno, t.codigo, t.id_servicio,
+               t.id_prioridad, t.fecha_generacion,
+               t.hora_generacion, s.prefijo, s.nombre,
+               p.nombre AS prioridad
+        FROM turno t
+        INNER JOIN servicio s
+            ON t.id_servicio = s.id_servicio
+        INNER JOIN prioridad p
+            ON t.id_prioridad = p.id_prioridad
+        WHERE t.estado = 'EN_ESPERA'
+        ORDER BY t.hora_generacion ASC
+        LIMIT 1
+        FOR UPDATE
+        """;
+
+    String sqlActualizar = """
+        UPDATE turno
+        SET estado = 'LLAMADO',
+            hora_llamado = ?,
+            id_ventanilla = ?,
+            id_funcionario = ?
+        WHERE id_turno = ?
+        """;
+
+    String sqlHistorial = """
+        INSERT INTO historial_turno
+            (id_turno, estado, fecha_hora,
+             id_funcionario, id_ventanilla, comentario)
+        VALUES (?, 'LLAMADO', ?, ?, ?, ?)
+        """;
+
+    try (Connection conexion = DatabaseConfig.obtenerConexion()) {
+        conexion.setAutoCommit(false);
+
+        try {
+            Turno turno;
+
+            try (PreparedStatement ps =
+                         conexion.prepareStatement(sqlBuscar);
+                 ResultSet rs = ps.executeQuery()) {
+
+                if (!rs.next()) {
+                    conexion.commit();
+                    return null;
+                }
+
+                Servicio servicio = new Servicio(
+                    rs.getInt("id_servicio"),
+                    rs.getString("prefijo"),
+                    rs.getString("nombre"),
+                    null,
+                    true
+                );
+
+                turno = new Turno();
+                turno.setId(rs.getInt("id_turno"));
+                turno.setCodigo(rs.getString("codigo"));
+                turno.setServicio(servicio);
+                turno.setPrioridad(
+                    PrioridadTurno.valueOf(rs.getString("prioridad"))
+                );
+                turno.setEstado(EstadoTurno.LLAMADO);
+            }
+
+            LocalDateTime ahora = LocalDateTime.now();
+
+            try (PreparedStatement ps =
+                         conexion.prepareStatement(sqlActualizar)) {
+
+                ps.setTimestamp(1, Timestamp.valueOf(ahora));
+                ps.setInt(2, idVentanilla);
+                ps.setInt(3, idFuncionario);
+                ps.setInt(4, turno.getId());
+
+                if (ps.executeUpdate() != 1) {
+                    throw new SQLException(
+                        "No se pudo asignar el turno."
+                    );
+                }
+            }
+
+            try (PreparedStatement ps =
+                         conexion.prepareStatement(sqlHistorial)) {
+
+                ps.setInt(1, turno.getId());
+                ps.setTimestamp(2, Timestamp.valueOf(ahora));
+                ps.setInt(3, idFuncionario);
+                ps.setInt(4, idVentanilla);
+                ps.setString(5, "Turno llamado");
+
+                ps.executeUpdate();
+            }
+
+            turno.setFechaLlamado(ahora);
+            turno.setIdFuncionario(idFuncionario);
+            turno.setIdVentanilla(idVentanilla);
+
+            conexion.commit();
+            return turno;
+
+        } catch (SQLException | RuntimeException e) {
+            conexion.rollback();
+            throw e;
+        } finally {
+            conexion.setAutoCommit(true);
+        }
+    }
+}
+
+public void cambiarEstadoConHistorial(
+        Turno turno,
+        EstadoTurno estadoEsperado,
+        EstadoTurno nuevoEstado,
+        LocalDateTime fecha,
+        String comentario) throws SQLException {
+
+    if (turno == null || turno.getId() <= 0) {
+        throw new IllegalArgumentException("Turno inválido.");
+    }
+
+    if (turno.getIdFuncionario() == null
+            || turno.getIdVentanilla() == null) {
+        throw new IllegalArgumentException(
+                "El turno no tiene funcionario o ventanilla asignados."
+        );
+    }
+
+    String columnaFecha;
+
+    switch (nuevoEstado) {
+        case EN_ATENCION ->
+            columnaFecha = "hora_inicio_atencion";
+        case FINALIZADO ->
+            columnaFecha = "hora_fin_atencion";
+        default ->
+            throw new IllegalArgumentException(
+                    "Transición de estado no permitida."
+            );
+    }
+
+    String sqlActualizar = """
+        UPDATE turno
+        SET estado = ?, %s = ?
+        WHERE id_turno = ? AND estado = ?
+        """.formatted(columnaFecha);
+
+    String sqlHistorial = """
+        INSERT INTO historial_turno
+            (id_turno, estado, fecha_hora,
+             id_funcionario, id_ventanilla, comentario)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """;
+
+    try (Connection conexion = DatabaseConfig.obtenerConexion()) {
+        conexion.setAutoCommit(false);
+
+        try {
+            try (PreparedStatement ps =
+                         conexion.prepareStatement(sqlActualizar)) {
+
+                ps.setString(1, nuevoEstado.name());
+                ps.setTimestamp(2, Timestamp.valueOf(fecha));
+                ps.setInt(3, turno.getId());
+                ps.setString(4, estadoEsperado.name());
+
+                if (ps.executeUpdate() != 1) {
+                    throw new SQLException(
+                            "El turno ya cambió de estado o no existe."
+                    );
+                }
+            }
+
+            try (PreparedStatement ps =
+                         conexion.prepareStatement(sqlHistorial)) {
+
+                ps.setInt(1, turno.getId());
+                ps.setString(2, nuevoEstado.name());
+                ps.setTimestamp(3, Timestamp.valueOf(fecha));
+                ps.setInt(4, turno.getIdFuncionario());
+                ps.setInt(5, turno.getIdVentanilla());
+                ps.setString(6, comentario);
+
+                ps.executeUpdate();
+            }
+
+            conexion.commit();
+
+        } catch (SQLException | RuntimeException e) {
+            conexion.rollback();
+            throw e;
+        } finally {
+            conexion.setAutoCommit(true);
+        }
+    }
+}
+
+
 
 }

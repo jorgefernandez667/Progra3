@@ -9,22 +9,52 @@ import cr.ac.una.turnos.common.domain.Turno;
 import cr.ac.una.turnos.server.service.TurnoService;
 import java.sql.SQLException;
 import javax.swing.table.DefaultTableModel;
+import cr.ac.una.turnos.common.domain.Funcionario;
+import cr.ac.una.turnos.server.service.SesionService;
 
 public class OperadorTurnosFrame extends javax.swing.JFrame {
     private Turno turnoActual;
     
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(OperadorTurnosFrame.class.getName());
 
-    /**
-     * Creates new form OperadorTurnosFrame
-     */
-    public OperadorTurnosFrame() {
-        initComponents();
-        tablaTurnos.setModel(modeloTabla);
-        cargarTurnosPendientes();
-    }
-
     private final TurnoService turnoService = new TurnoService();
+
+private final SesionService sesionService;
+private final Funcionario funcionario;
+private final int idVentanilla;
+
+public OperadorTurnosFrame(
+        SesionService sesionService,
+        Funcionario funcionario,
+        int idVentanilla) {
+
+    this.sesionService = sesionService;
+    this.funcionario = funcionario;
+    this.idVentanilla = idVentanilla;
+
+    initComponents();
+
+    tablaTurnos.setModel(modeloTabla);
+
+    etiquetaTitulo.setText(
+            "OPERADOR: " + funcionario.getNombreCompleto()
+    );
+
+    etiquetaTurnoActual.setText(
+            "Ventanilla asignada: " + idVentanilla
+    );
+
+    setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
+
+    addWindowListener(new java.awt.event.WindowAdapter() {
+        @Override
+        public void windowClosing(java.awt.event.WindowEvent e) {
+            cerrarSesion();
+        }
+    });
+
+    cargarTurnosPendientes();
+}
 
 private final DefaultTableModel modeloTabla =
         new DefaultTableModel(
@@ -153,7 +183,8 @@ private final DefaultTableModel modeloTabla =
 
     private void botonLlamarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_botonLlamarActionPerformed
         try {
-        turnoActual = turnoService.llamarSiguienteTurno();
+        turnoActual = turnoService.llamarSiguienteTurno(funcionario.getId(),
+        idVentanilla);
 
         if (turnoActual == null) {
             etiquetaTurnoActual.setText(
@@ -282,7 +313,9 @@ private final DefaultTableModel modeloTabla =
         //</editor-fold>
 
         /* Create and display the form */
-        java.awt.EventQueue.invokeLater(() -> new OperadorTurnosFrame().setVisible(true));
+        java.awt.EventQueue.invokeLater(() -> {
+    new LoginFrame().setVisible(true);
+});
     }
 
 private void cargarTurnosPendientes() {
@@ -306,6 +339,39 @@ private void cargarTurnosPendientes() {
                 JOptionPane.ERROR_MESSAGE
         );
         e.printStackTrace();
+    }
+}
+private void cerrarSesion() {
+
+    int respuesta = JOptionPane.showConfirmDialog(
+            this,
+            "¿Desea cerrar la sesión y liberar la ventanilla?",
+            "Cerrar sesión",
+            JOptionPane.YES_NO_OPTION
+    );
+
+    if (respuesta != JOptionPane.YES_OPTION) {
+        return;
+    }
+
+    try {
+        sesionService.cerrarSesion();
+
+        dispose();
+
+        JOptionPane.showMessageDialog(
+                null,
+                "Sesión cerrada correctamente."
+        );
+
+    } catch (SQLException | RuntimeException e) {
+
+        JOptionPane.showMessageDialog(
+                this,
+                "No se pudo cerrar la sesión:\n" + e.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE
+        );
     }
 }
 

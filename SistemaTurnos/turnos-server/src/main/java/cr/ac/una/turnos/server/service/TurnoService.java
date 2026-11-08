@@ -114,28 +114,31 @@ private String generarCodigo(Servicio servicio) {
 
   
 
-public synchronized Turno llamarSiguienteTurno() {
+
+public synchronized Turno llamarSiguienteTurno(
+        int idFuncionario,
+        int idVentanilla) {
+
+    if (idFuncionario <= 0 || idVentanilla <= 0) {
+        throw new IllegalArgumentException(
+            "El funcionario y la ventanilla deben ser válidos."
+        );
+    }
+
     try {
-        List<Turno> pendientes = turnoDAO.obtenerTurnosPendientes();
-
-        if (pendientes.isEmpty()) {
-            return null;
-        }
-
-        Turno siguiente = pendientes.get(0);
-        siguiente.llamar();
-
-        turnoDAO.actualizar(siguiente);
-
-        return siguiente;
+        return turnoDAO.llamarSiguienteTurno(
+            idFuncionario,
+            idVentanilla
+        );
 
     } catch (SQLException e) {
         throw new IllegalStateException(
-                "No se pudo llamar al siguiente turno.",
-                e
+            "No se pudo llamar al siguiente turno.",
+            e
         );
     }
 }
+
 
 
 
@@ -183,7 +186,9 @@ public synchronized Turno llamarSiguienteTurno() {
     }
     
     
+
 public synchronized void iniciarAtencionTurno(Turno turno) {
+
     if (turno == null) {
         throw new IllegalArgumentException(
                 "No hay un turno seleccionado."
@@ -196,17 +201,28 @@ public synchronized void iniciarAtencionTurno(Turno turno) {
         );
     }
 
-    turno.iniciarAtencion();
+    LocalDateTime ahora = LocalDateTime.now();
 
     try {
-        turnoDAO.actualizar(turno);
+        turnoDAO.cambiarEstadoConHistorial(
+                turno,
+                EstadoTurno.LLAMADO,
+                EstadoTurno.EN_ATENCION,
+                ahora,
+                "Inicio de atención"
+        );
+
+        turno.setEstado(EstadoTurno.EN_ATENCION);
+        turno.setFechaInicioAtencion(ahora);
+
     } catch (SQLException e) {
         throw new IllegalStateException(
-                "No se pudo guardar el inicio de atención en la base de datos.",
+                "No se pudo iniciar la atención del turno.",
                 e
         );
     }
 }
+
 
 
     public synchronized void finalizarAtencion(Ventanilla ventanilla) {
@@ -229,7 +245,9 @@ public synchronized void iniciarAtencionTurno(Turno turno) {
     return turnoDAO.obtenerTurnosPendientes();
 }
   
+
 public synchronized void finalizarAtencionTurno(Turno turno) {
+
     if (turno == null) {
         throw new IllegalArgumentException(
                 "No hay un turno seleccionado."
@@ -242,17 +260,28 @@ public synchronized void finalizarAtencionTurno(Turno turno) {
         );
     }
 
-    turno.finalizarAtencion();
+    LocalDateTime ahora = LocalDateTime.now();
 
     try {
-        turnoDAO.actualizar(turno);
+        turnoDAO.cambiarEstadoConHistorial(
+                turno,
+                EstadoTurno.EN_ATENCION,
+                EstadoTurno.FINALIZADO,
+                ahora,
+                "Atención finalizada"
+        );
+
+        turno.setEstado(EstadoTurno.FINALIZADO);
+        turno.setFechaFinAtencion(ahora);
+
     } catch (SQLException e) {
         throw new IllegalStateException(
-                "No se pudo guardar la finalización en la base de datos.",
+                "No se pudo finalizar la atención del turno.",
                 e
         );
     }
 }
+
 public synchronized List<Turno> consultarUltimosTurnosLlamados()
         throws SQLException {
     return turnoDAO.obtenerUltimosTurnosLlamados();

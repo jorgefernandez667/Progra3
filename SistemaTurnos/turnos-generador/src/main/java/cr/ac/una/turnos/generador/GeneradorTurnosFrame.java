@@ -24,81 +24,96 @@ public class GeneradorTurnosFrame extends javax.swing.JFrame {
         inicializarComponentes();
     }
 
-    private void configurarVentana() {
-        setTitle("Sistema de Gestión de Turnos");
-        setSize(600, 450);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLocationRelativeTo(null);
-        setResizable(false);
-    }
+   private void configurarVentana() {
+    setTitle("Sistema de Gestión de Turnos");
+    setSize(650, 560);
+    setMinimumSize(new Dimension(600, 520));
+    setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    setLocationRelativeTo(null);
+    setResizable(true);
+}
     
     private void inicializarComponentes() {
-        JPanel panelPrincipal = new JPanel(new BorderLayout(15, 15));
-        panelPrincipal.setBorder(
-                BorderFactory.createEmptyBorder(25, 30, 25, 30)
-        );
 
-        JLabel titulo = new JLabel(
-                "GENERADOR DE TURNOS",
-                SwingConstants.CENTER
-        );
-        titulo.setFont(new Font("SansSerif", Font.BOLD, 25));
+    JPanel panelPrincipal = new JPanel(new BorderLayout(15, 20));
+    panelPrincipal.setBorder(
+            BorderFactory.createEmptyBorder(25, 30, 25, 30)
+    );
 
-        JLabel subtitulo = new JLabel(
-                "Seleccione el servicio que necesita",
-                SwingConstants.CENTER
-        );
-        subtitulo.setFont(new Font("SansSerif", Font.PLAIN, 15));
+    // Título
+    JLabel titulo = new JLabel(
+            "GENERADOR DE TURNOS",
+            SwingConstants.CENTER
+    );
+    titulo.setFont(new Font("SansSerif", Font.BOLD, 25));
 
-        JPanel panelSuperior = new JPanel(new GridLayout(2, 1, 5, 5));
-        panelSuperior.add(titulo);
-        panelSuperior.add(subtitulo);
+    JLabel subtitulo = new JLabel(
+            "Seleccione el servicio que necesita",
+            SwingConstants.CENTER
+    );
+    subtitulo.setFont(new Font("SansSerif", Font.PLAIN, 15));
 
-        comboServicios = new JComboBox<>(new String[]{
-            "Información general",
-            "Trámites",
-            "Pagos",
-            "Atención preferencial"
-        });
-        comboServicios.setFont(new Font("SansSerif", Font.PLAIN, 16));
+    JPanel panelSuperior = new JPanel(new GridLayout(2, 1, 5, 5));
+    panelSuperior.add(titulo);
+    panelSuperior.add(subtitulo);
 
-        botonGenerar = new JButton("Generar turno");
-        botonGenerar.setFont(new Font("SansSerif", Font.BOLD, 16));
-        botonGenerar.addActionListener(e -> generarTurno());
+    // Servicio
+    comboServicios = new JComboBox<>(new String[]{
+        "Información general",
+        "Trámites",
+        "Pagos",
+        "Atención preferencial"
+    });
 
-        JPanel panelSeleccion = new JPanel(new GridLayout(3, 1, 10, 10));
-        panelSeleccion.add(new JLabel("Servicio:"));
-        panelSeleccion.add(comboServicios);
-        panelSeleccion.add(botonGenerar);
+    comboServicios.setFont(new Font("SansSerif", Font.PLAIN, 16));
 
-        etiquetaTurno = new JLabel(
-                "---",
-                SwingConstants.CENTER
-        );
-        etiquetaTurno.setFont(new Font("SansSerif", Font.BOLD, 48));
+    // Prioridad
+    comboPrioridades = new JComboBox<>(PrioridadTurno.values());
+    comboPrioridades.setFont(new Font("SansSerif", Font.PLAIN, 16));
 
-        etiquetaMensaje = new JLabel(
-                "Seleccione un servicio para comenzar.",
-                SwingConstants.CENTER
-        );
-        etiquetaMensaje.setFont(new Font("SansSerif", Font.PLAIN, 14));
+    // Botón
+    botonGenerar = new JButton("Generar turno");
+    botonGenerar.setFont(new Font("SansSerif", Font.BOLD, 16));
+    botonGenerar.addActionListener(e -> generarTurno());
 
-        JPanel panelResultado = new JPanel(new GridLayout(2, 1, 5, 5));
-        panelResultado.setBorder(
-                BorderFactory.createTitledBorder("Su turno")
-        );
-        panelResultado.add(etiquetaTurno);
-        panelResultado.add(etiquetaMensaje);
+    // Panel de selección
+    JPanel panelSeleccion = new JPanel(new GridLayout(5, 1, 8, 8));
 
-        JPanel panelCentral = new JPanel(new BorderLayout(15, 15));
-        panelCentral.add(panelSeleccion, BorderLayout.NORTH);
-        panelCentral.add(panelResultado, BorderLayout.CENTER);
+    panelSeleccion.add(new JLabel("Servicio:"));
+    panelSeleccion.add(comboServicios);
+    panelSeleccion.add(new JLabel("Prioridad:"));
+    panelSeleccion.add(comboPrioridades);
+    panelSeleccion.add(botonGenerar);
 
-        panelPrincipal.add(panelSuperior, BorderLayout.NORTH);
-        panelPrincipal.add(panelCentral, BorderLayout.CENTER);
+    // Resultado
+    etiquetaTurno = new JLabel("---", SwingConstants.CENTER);
+    etiquetaTurno.setFont(new Font("SansSerif", Font.BOLD, 42));
 
-        setContentPane(panelPrincipal);
-    }
+    etiquetaMensaje = new JLabel(
+            "Seleccione un servicio para comenzar.",
+            SwingConstants.CENTER
+    );
+    etiquetaMensaje.setFont(new Font("SansSerif", Font.PLAIN, 13));
+
+    JPanel panelResultado = new JPanel(new GridLayout(2, 1, 5, 5));
+    panelResultado.setBorder(
+            BorderFactory.createTitledBorder("Su turno")
+    );
+    panelResultado.setPreferredSize(new Dimension(500, 125));
+
+    panelResultado.add(etiquetaTurno);
+    panelResultado.add(etiquetaMensaje);
+
+    // Distribución central
+    JPanel panelCentral = new JPanel(new BorderLayout(15, 15));
+    panelCentral.add(panelSeleccion, BorderLayout.NORTH);
+    panelCentral.add(panelResultado, BorderLayout.CENTER);
+
+    panelPrincipal.add(panelSuperior, BorderLayout.NORTH);
+    panelPrincipal.add(panelCentral, BorderLayout.CENTER);
+
+    setContentPane(panelPrincipal);
+}
     
 
 private void generarTurno() {
@@ -151,10 +166,23 @@ private void generarTurno() {
     servicio.setActivo(true);
 
     try {
-        Turno turno = turnoService.generarTurno(
-                servicio,
-                PrioridadTurno.NORMAL
-        );
+       PrioridadTurno prioridadSeleccionada =
+        (PrioridadTurno) comboPrioridades.getSelectedItem();
+
+if (prioridadSeleccionada == null) {
+    JOptionPane.showMessageDialog(
+            this,
+            "Debe seleccionar una prioridad.",
+            "Validación",
+            JOptionPane.WARNING_MESSAGE
+    );
+    return;
+}
+
+Turno turno = turnoService.generarTurno(
+        servicio,
+        prioridadSeleccionada
+);
 
         etiquetaTurno.setText(turno.getCodigo());
         etiquetaMensaje.setText(
@@ -195,7 +223,7 @@ private void generarTurno() {
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 300, Short.MAX_VALUE)
+            .addGap(0, 451, Short.MAX_VALUE)
         );
 
         pack();
@@ -233,6 +261,7 @@ private javax.swing.JComboBox<String> comboServicios;
 private javax.swing.JLabel etiquetaTurno;
 private javax.swing.JLabel etiquetaMensaje;
 private javax.swing.JButton botonGenerar;
+private javax.swing.JComboBox<PrioridadTurno> comboPrioridades;
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     // End of variables declaration//GEN-END:variables
