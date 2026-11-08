@@ -575,6 +575,97 @@ public void cambiarEstadoConHistorial(
     }
 }
 
+public Turno obtenerUltimoTurnoLlamado() throws SQLException {
+
+    String sql = """
+        SELECT codigo, estado, id_ventanilla,
+               hora_llamado
+        FROM turno
+        WHERE hora_llamado IS NOT NULL
+        ORDER BY hora_llamado DESC
+        LIMIT 1
+        """;
+
+    try (Connection conexion = DatabaseConfig.obtenerConexion();
+         PreparedStatement ps = conexion.prepareStatement(sql);
+         ResultSet rs = ps.executeQuery()) {
+
+        if (!rs.next()) {
+            return null;
+        }
+
+        Turno turno = new Turno();
+        turno.setCodigo(rs.getString("codigo"));
+        turno.setEstado(
+                EstadoTurno.valueOf(rs.getString("estado"))
+        );
+
+        int idVentanilla = rs.getInt("id_ventanilla");
+        turno.setIdVentanilla(
+                rs.wasNull() ? null : idVentanilla
+        );
+
+        Timestamp llamado = rs.getTimestamp("hora_llamado");
+
+        if (llamado != null) {
+            turno.setFechaLlamado(llamado.toLocalDateTime());
+        }
+
+        return turno;
+    }
+}
+
+public List<Turno> obtenerTurnosEnAtencion()
+        throws SQLException {
+
+    String sql = """
+        SELECT codigo, estado, id_ventanilla,
+               hora_llamado, hora_inicio_atencion
+        FROM turno
+        WHERE estado = 'EN_ATENCION'
+        ORDER BY hora_inicio_atencion DESC
+        """;
+
+    List<Turno> turnos = new ArrayList<>();
+
+    try (Connection conexion = DatabaseConfig.obtenerConexion();
+         PreparedStatement ps = conexion.prepareStatement(sql);
+         ResultSet rs = ps.executeQuery()) {
+
+        while (rs.next()) {
+            Turno turno = new Turno();
+
+            turno.setCodigo(rs.getString("codigo"));
+            turno.setEstado(
+                    EstadoTurno.valueOf(rs.getString("estado"))
+            );
+
+            int idVentanilla = rs.getInt("id_ventanilla");
+            turno.setIdVentanilla(
+                    rs.wasNull() ? null : idVentanilla
+            );
+
+            Timestamp llamado = rs.getTimestamp("hora_llamado");
+            if (llamado != null) {
+                turno.setFechaLlamado(llamado.toLocalDateTime());
+            }
+
+            Timestamp inicio =
+                    rs.getTimestamp("hora_inicio_atencion");
+
+            if (inicio != null) {
+                turno.setFechaInicioAtencion(
+                        inicio.toLocalDateTime()
+                );
+            }
+
+            turnos.add(turno);
+        }
+    }
+
+    return turnos;
+}
+
 
 
 }

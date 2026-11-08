@@ -16,6 +16,19 @@ public class TurnoService {
 
     private final List<Turno> turnos = new ArrayList<>();
     private final TurnoDAO turnoDAO = new TurnoDAO();
+    
+public Turno consultarUltimoTurnoLlamado()
+        throws SQLException {
+
+    return turnoDAO.obtenerUltimoTurnoLlamado();
+}
+
+public List<Turno> consultarTurnosEnAtencion()
+        throws SQLException {
+
+    return turnoDAO.obtenerTurnosEnAtencion();
+}
+
 
     public synchronized void agregarTurno(Turno turno) {
         if (turno == null) {

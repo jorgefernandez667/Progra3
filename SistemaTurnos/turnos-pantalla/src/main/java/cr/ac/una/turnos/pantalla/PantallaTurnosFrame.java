@@ -1,42 +1,391 @@
+
 package cr.ac.una.turnos.pantalla;
+
 import cr.ac.una.turnos.common.domain.Turno;
 import cr.ac.una.turnos.server.service.TurnoService;
+
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.GridLayout;
 import java.sql.SQLException;
 import java.util.List;
+
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.SwingConstants;
+import javax.swing.SwingWorker;
+import javax.swing.Timer;
 import javax.swing.table.DefaultTableModel;
-public class PantallaTurnosFrame extends javax.swing.JFrame {
-    
-    private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(PantallaTurnosFrame.class.getName());
-private final TurnoService turnoService = new TurnoService();
-private final javax.swing.Timer temporizador =
-        new javax.swing.Timer(3000, e -> cargarUltimosTurnos());
-private final DefaultTableModel modeloTabla =
-        new DefaultTableModel(
-                new Object[]{"Turno", "Estado", "Ventanilla"}, 0
-        ) {
-            @Override
-            public boolean isCellEditable(int fila, int columna) {
-                return false;
-            }
-        };
+
+public class PantallaTurnosFrame extends JFrame {
+
+    private final TurnoService turnoService = new TurnoService();
+
+    private final JLabel etiquetaUltimoLlamado =
+            new JLabel("Esperando turnos...", SwingConstants.CENTER);
+
+    private final JLabel etiquetaEstado =
+            new JLabel("Conectando con el servidor...", SwingConstants.CENTER);
+
+    private final JPanel panelTurnosAtencion = new JPanel(
+            new GridLayout(0, 2, 12, 12)
+    );
+
+    private final DefaultTableModel modeloTabla =
+            new DefaultTableModel(
+                    new Object[]{"Turno", "Estado", "Ventanilla"}, 0
+            ) {
+                @Override
+                public boolean isCellEditable(int fila, int columna) {
+                    return false;
+                }
+            };
+
+    private final JTable tablaTurnos = new JTable(modeloTabla);
+
+    private final Timer temporizador =
+            new Timer(3000, e -> actualizarPantalla());
+
+    private boolean actualizacionEnCurso = false;
+
     public PantallaTurnosFrame() {
-        initComponents();
-        tablaTurnos.setModel(modeloTabla);
-        cargarUltimosTurnos();
+
+        configurarVentana();
+        inicializarComponentes();
+
+        actualizarPantalla();
         temporizador.start();
     }
-private void cargarUltimosTurnos() {
-    try {
+
+    private void configurarVentana() {
+
+        setTitle("Sistema de Gestión de Turnos");
+        setSize(950, 750);
+        setMinimumSize(new Dimension(750, 600));
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    }
+
+    private void inicializarComponentes() {
+
+        JPanel panelPrincipal = new JPanel(new BorderLayout(15, 15));
+
+        panelPrincipal.setBorder(
+                BorderFactory.createEmptyBorder(20, 25, 20, 25)
+        );
+
+        // ENCABEZADO
+
+        JLabel titulo = new JLabel(
+                "SISTEMA DE GESTIÓN DE TURNOS",
+                SwingConstants.CENTER
+        );
+
+        titulo.setFont(new Font("SansSerif", Font.BOLD, 28));
+
+        // ÚLTIMO TURNO LLAMADO
+
+        JPanel panelLlamado = new JPanel(new BorderLayout(10, 10));
+
+        panelLlamado.setBorder(
+                BorderFactory.createTitledBorder("Último turno llamado")
+        );
+
+        etiquetaUltimoLlamado.setFont(
+                new Font("SansSerif", Font.BOLD, 32)
+        );
+
+        etiquetaUltimoLlamado.setForeground(
+                new Color(20, 90, 160)
+        );
+
+        panelLlamado.add(
+                etiquetaUltimoLlamado,
+                BorderLayout.CENTER
+        );
+
+        panelLlamado.setPreferredSize(new Dimension(800, 120));
+
+        // TURNOS EN ATENCIÓN
+
+        JLabel tituloAtencion = new JLabel(
+                "TURNOS ACTUALMENTE EN ATENCIÓN"
+        );
+
+        tituloAtencion.setFont(
+                new Font("SansSerif", Font.BOLD, 19)
+        );
+
+        panelTurnosAtencion.setBorder(
+                BorderFactory.createEmptyBorder(10, 5, 10, 5)
+        );
+
+        JScrollPane scrollAtencion =
+                new JScrollPane(panelTurnosAtencion);
+
+        scrollAtencion.setPreferredSize(
+                new Dimension(800, 260)
+        );
+
+        JPanel panelAtencion = new JPanel(new BorderLayout(5, 10));
+
+        panelAtencion.add(
+                tituloAtencion,
+                BorderLayout.NORTH
+        );
+
+        panelAtencion.add(
+                scrollAtencion,
+                BorderLayout.CENTER
+        );
+
+        // ÚLTIMOS TURNOS
+
+        JLabel tituloHistorial = new JLabel(
+                "ÚLTIMOS TURNOS"
+        );
+
+        tituloHistorial.setFont(
+                new Font("SansSerif", Font.BOLD, 19)
+        );
+
+        tablaTurnos.setFont(
+                new Font("SansSerif", Font.PLAIN, 15)
+        );
+
+        tablaTurnos.setRowHeight(30);
+        tablaTurnos.setFillsViewportHeight(true);
+
+        tablaTurnos.getTableHeader().setFont(
+                new Font("SansSerif", Font.BOLD, 14)
+        );
+
+        JScrollPane scrollHistorial =
+                new JScrollPane(tablaTurnos);
+
+        JPanel panelHistorial = new JPanel(new BorderLayout(5, 10));
+
+        panelHistorial.add(
+                tituloHistorial,
+                BorderLayout.NORTH
+        );
+
+        panelHistorial.add(
+                scrollHistorial,
+                BorderLayout.CENTER
+        );
+
+        // DISTRIBUCIÓN GENERAL
+
+        JPanel panelSuperior = new JPanel(new BorderLayout(10, 10));
+
+        panelSuperior.add(titulo, BorderLayout.NORTH);
+        panelSuperior.add(panelLlamado, BorderLayout.CENTER);
+
+        JPanel panelCentral = new JPanel(new BorderLayout(10, 15));
+
+        panelCentral.add(panelAtencion, BorderLayout.CENTER);
+        panelCentral.add(panelHistorial, BorderLayout.SOUTH);
+
+        panelPrincipal.add(
+                panelSuperior,
+                BorderLayout.NORTH
+        );
+
+        panelPrincipal.add(
+                panelCentral,
+                BorderLayout.CENTER
+        );
+
+        etiquetaEstado.setFont(
+                new Font("SansSerif", Font.PLAIN, 12)
+        );
+
+        panelPrincipal.add(
+                etiquetaEstado,
+                BorderLayout.SOUTH
+        );
+
+        setContentPane(panelPrincipal);
+    }
+
+    private void actualizarPantalla() {
+
+        // Evitar consultas simultáneas.
+        if (actualizacionEnCurso) {
+            return;
+        }
+
+        actualizacionEnCurso = true;
+
+        SwingWorker<DatosPantalla, Void> trabajador =
+                new SwingWorker<>() {
+
+            @Override
+            protected DatosPantalla doInBackground()
+                    throws Exception {
+
+                Turno ultimo =
+                        turnoService.consultarUltimoTurnoLlamado();
+
+                List<Turno> enAtencion =
+                        turnoService.consultarTurnosEnAtencion();
+
+                List<Turno> recientes =
+                        turnoService.consultarUltimosTurnosLlamados();
+
+                return new DatosPantalla(
+                        ultimo,
+                        enAtencion,
+                        recientes
+                );
+            }
+
+            @Override
+            protected void done() {
+
+                try {
+                    DatosPantalla datos = get();
+
+                    mostrarUltimoLlamado(datos.ultimoLlamado);
+                    mostrarTurnosEnAtencion(datos.enAtencion);
+                    mostrarHistorial(datos.recientes);
+
+                    etiquetaEstado.setText(
+                            "Pantalla actualizada automáticamente."
+                    );
+
+                } catch (Exception e) {
+
+                    etiquetaEstado.setText(
+                            "No se pudo actualizar la información. "
+                            + "Verifique la conexión con el servidor."
+                    );
+
+                    System.err.println(
+                            "Error al actualizar pantalla: "
+                            + e.getMessage()
+                    );
+
+                } finally {
+                    actualizacionEnCurso = false;
+                }
+            }
+        };
+
+        trabajador.execute();
+    }
+
+    private void mostrarUltimoLlamado(Turno turno) {
+
+        if (turno == null) {
+
+            etiquetaUltimoLlamado.setText(
+                    "No hay turnos llamados"
+            );
+
+            return;
+        }
+
+        String ventanilla = turno.getIdVentanilla() == null
+                ? "---"
+                : turno.getIdVentanilla().toString();
+
+        etiquetaUltimoLlamado.setText(
+                turno.getCodigo()
+                + "     →     VENTANILLA "
+                + ventanilla
+        );
+    }
+
+    private void mostrarTurnosEnAtencion(List<Turno> turnos) {
+
+        panelTurnosAtencion.removeAll();
+
+        if (turnos.isEmpty()) {
+
+            JLabel mensaje = new JLabel(
+                    "No hay turnos en atención actualmente.",
+                    SwingConstants.CENTER
+            );
+
+            mensaje.setFont(
+                    new Font("SansSerif", Font.PLAIN, 16)
+            );
+
+            panelTurnosAtencion.add(mensaje);
+
+        } else {
+
+            for (Turno turno : turnos) {
+
+                String ventanilla =
+                        turno.getIdVentanilla() == null
+                        ? "---"
+                        : turno.getIdVentanilla().toString();
+
+                JPanel tarjeta = new JPanel(new BorderLayout(5, 8));
+
+                tarjeta.setBorder(
+                        BorderFactory.createCompoundBorder(
+                                BorderFactory.createLineBorder(
+                                        new Color(190, 190, 190)
+                                ),
+                                BorderFactory.createEmptyBorder(
+                                        12, 12, 12, 12
+                                )
+                        )
+                );
+
+                tarjeta.setBackground(
+                        new Color(235, 245, 255)
+                );
+
+                JLabel codigo = new JLabel(
+                        turno.getCodigo(),
+                        SwingConstants.CENTER
+                );
+
+                codigo.setFont(
+                        new Font("SansSerif", Font.BOLD, 27)
+                );
+
+                JLabel numeroVentanilla = new JLabel(
+                        "Ventanilla " + ventanilla,
+                        SwingConstants.CENTER
+                );
+
+                numeroVentanilla.setFont(
+                        new Font("SansSerif", Font.PLAIN, 16)
+                );
+
+                tarjeta.add(codigo, BorderLayout.CENTER);
+                tarjeta.add(numeroVentanilla, BorderLayout.SOUTH);
+
+                panelTurnosAtencion.add(tarjeta);
+            }
+        }
+
+        panelTurnosAtencion.revalidate();
+        panelTurnosAtencion.repaint();
+    }
+
+    private void mostrarHistorial(List<Turno> turnos) {
+
         modeloTabla.setRowCount(0);
-
-        List<Turno> turnos =
-                turnoService.consultarUltimosTurnosLlamados();
-
-        Turno turnoEnAtencion = null;
 
         for (Turno turno : turnos) {
 
-            String ventanilla = turno.getIdVentanilla() == null
+            String ventanilla =
+                    turno.getIdVentanilla() == null
                     ? "---"
                     : turno.getIdVentanilla().toString();
 
@@ -45,181 +394,37 @@ private void cargarUltimosTurnos() {
                 turno.getEstado(),
                 ventanilla
             });
-
-            if (turno.getEstado()
-                    == cr.ac.una.turnos.common.enums.EstadoTurno.EN_ATENCION) {
-                turnoEnAtencion = turno;
-            }
         }
-
-        // Último turno llamado
-        if (turnos.isEmpty()) {
-            etiquetaTurnoLlamado.setText(
-                    "Último turno llamado: ---"
-            );
-        } else {
-            etiquetaTurnoLlamado.setText(
-                    "Último turno llamado: "
-                    + turnos.get(0).getCodigo()
-            );
-        }
-
-        // Turno actualmente en atención
-        if (turnoEnAtencion == null) {
-            etiquetaEnAtencion.setText(
-                    "Turno en atención: ---"
-            );
-
-            etiquetaVentanilla.setText(
-                    "Ventanilla: ---"
-            );
-        } else {
-            etiquetaEnAtencion.setText(
-                    "Turno en atención: "
-                    + turnoEnAtencion.getCodigo()
-            );
-
-            String numeroVentanilla =
-                    turnoEnAtencion.getIdVentanilla() == null
-                    ? "---"
-                    : turnoEnAtencion.getIdVentanilla().toString();
-
-            etiquetaVentanilla.setText(
-                    "Ventanilla: " + numeroVentanilla
-            );
-        }
-
-    } catch (SQLException e) {
-        javax.swing.JOptionPane.showMessageDialog(
-                this,
-                "Error al consultar los últimos turnos: "
-                + e.getMessage(),
-                "Error de conexión",
-                javax.swing.JOptionPane.ERROR_MESSAGE
-        );
-    }
-}
-@Override
-public void dispose() {
-    temporizador.stop();
-    super.dispose();
-}
-    @SuppressWarnings("unchecked")
-    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
-    private void initComponents() {
-
-        etiquetaTitulo = new javax.swing.JLabel();
-        etiquetaTurnoLlamado = new javax.swing.JLabel();
-        etiquetaVentanilla = new javax.swing.JLabel();
-        etiquetaEnAtencion = new javax.swing.JLabel();
-        jScrollPane1 = new javax.swing.JScrollPane();
-        tablaTurnos = new javax.swing.JTable();
-
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-
-        etiquetaTitulo.setFont(new java.awt.Font("Segoe UI", 0, 24)); // NOI18N
-        etiquetaTitulo.setText("SISTEMA DE TURNOS");
-
-        etiquetaTurnoLlamado.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        etiquetaTurnoLlamado.setText("Último turno llamado: ---");
-
-        etiquetaVentanilla.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        etiquetaVentanilla.setText("Ventanilla: ---");
-
-        etiquetaEnAtencion.setFont(new java.awt.Font("Segoe UI", 0, 18)); // NOI18N
-        etiquetaEnAtencion.setText("Turno en atención: ---");
-
-        tablaTurnos.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null}
-            },
-            new String [] {
-                "Title 1", "Title 2", "Title 3", "Title 4"
-            }
-        ));
-        jScrollPane1.setViewportView(tablaTurnos);
-
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-        getContentPane().setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(layout.createSequentialGroup()
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(layout.createSequentialGroup()
-                                .addGap(85, 85, 85)
-                                .addComponent(etiquetaTitulo))
-                            .addGroup(layout.createSequentialGroup()
-                                .addGap(99, 99, 99)
-                                .addComponent(etiquetaTurnoLlamado)))
-                        .addGap(0, 0, Short.MAX_VALUE))
-                    .addGroup(layout.createSequentialGroup()
-                        .addContainerGap()
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(layout.createSequentialGroup()
-                                .addGap(6, 6, 6)
-                                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 375, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(0, 7, Short.MAX_VALUE))
-                            .addGroup(layout.createSequentialGroup()
-                                .addComponent(etiquetaVentanilla, javax.swing.GroupLayout.PREFERRED_SIZE, 179, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(18, 18, 18)
-                                .addComponent(etiquetaEnAtencion, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))))
-                .addContainerGap())
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(etiquetaTitulo, javax.swing.GroupLayout.PREFERRED_SIZE, 34, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(etiquetaTurnoLlamado)
-                .addGap(26, 26, 26)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(etiquetaVentanilla, javax.swing.GroupLayout.PREFERRED_SIZE, 51, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(etiquetaEnAtencion, javax.swing.GroupLayout.PREFERRED_SIZE, 51, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 126, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
-
-        pack();
-    }// </editor-fold>//GEN-END:initComponents
-
-    /**
-     * @param args the command line arguments
-     */
-    public static void main(String args[]) {
-        /* Set the Nimbus look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
-         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
-         */
-        try {
-            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (ReflectiveOperationException | javax.swing.UnsupportedLookAndFeelException ex) {
-            logger.log(java.util.logging.Level.SEVERE, null, ex);
-        }
-        //</editor-fold>
-
-        /* Create and display the form */
-        java.awt.EventQueue.invokeLater(() -> new PantallaTurnosFrame().setVisible(true));
     }
 
-    // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JLabel etiquetaEnAtencion;
-    private javax.swing.JLabel etiquetaTitulo;
-    private javax.swing.JLabel etiquetaTurnoLlamado;
-    private javax.swing.JLabel etiquetaVentanilla;
-    private javax.swing.JScrollPane jScrollPane1;
-    private javax.swing.JTable tablaTurnos;
-    // End of variables declaration//GEN-END:variables
+    private static class DatosPantalla {
+
+        private final Turno ultimoLlamado;
+        private final List<Turno> enAtencion;
+        private final List<Turno> recientes;
+
+        public DatosPantalla(
+                Turno ultimoLlamado,
+                List<Turno> enAtencion,
+                List<Turno> recientes) {
+
+            this.ultimoLlamado = ultimoLlamado;
+            this.enAtencion = enAtencion;
+            this.recientes = recientes;
+        }
+    }
+
+    @Override
+    public void dispose() {
+
+        temporizador.stop();
+        super.dispose();
+    }
+
+    public static void main(String[] args) {
+
+        java.awt.EventQueue.invokeLater(() ->
+                new PantallaTurnosFrame().setVisible(true)
+        );
+    }
 }
