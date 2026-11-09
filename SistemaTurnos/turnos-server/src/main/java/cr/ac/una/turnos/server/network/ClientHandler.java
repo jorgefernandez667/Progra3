@@ -3,14 +3,17 @@ package cr.ac.una.turnos.server.network;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
+import cr.ac.una.turnos.common.dto.TurnoDTO;
 import cr.ac.una.turnos.common.domain.Funcionario;
 import cr.ac.una.turnos.common.enums.TipoMensaje;
 import cr.ac.una.turnos.common.protocol.Request;
 import cr.ac.una.turnos.common.protocol.Response;
-
+import cr.ac.una.turnos.common.dto.ServicioDTO;
 import cr.ac.una.turnos.server.service.SesionService;
+import java.util.List;
 
+import cr.ac.una.turnos.common.domain.Servicio;
+import cr.ac.una.turnos.common.domain.Turno;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -283,5 +286,33 @@ public class ClientHandler implements Runnable {
             );
         }
     }
+    private List<ServicioDTO> convertirServicios(List<Servicio> servicios) {
+    return servicios.stream()
+        .map(s -> new ServicioDTO(
+            s.getId(),
+            s.getCodigo(),
+            s.getNombre(),
+            s.getDescripcion(),
+            s.isActivo()
+        ))
+        .toList();
+}
+    private TurnoDTO convertirTurno(Turno turno) {
+    return new TurnoDTO(
+        turno.getId(),
+        turno.getCodigo(),
+        turno.getServicio().getId(),
+        turno.getServicio().getNombre(),
+        turno.getPrioridad(),
+        turno.getEstado(),
+        turno.getFechaGeneracion(),
+        turno.getFechaLlamado(),
+        turno.getFechaInicioAtencion(),
+        turno.getFechaFinAtencion(),
+        turno.getIdVentanilla() == null ? 0 : turno.getIdVentanilla(),
+        null,
+        turno.getIdFuncionario() == null ? 0 : turno.getIdFuncionario()
+    );
+}
 }
 

@@ -300,4 +300,34 @@ public synchronized List<Turno> consultarUltimosTurnosLlamados()
     return turnoDAO.obtenerUltimosTurnosLlamados();
 }
 
+
+private final cr.ac.una.turnos.server.dao.ServicioDAO servicioDAO =
+        new cr.ac.una.turnos.server.dao.ServicioDAO();
+
+public List<Servicio> consultarServicios() throws SQLException {
+    return servicioDAO.obtenerTodos();
+}
+
+public Turno generarTurnoTCP(
+        int idServicio,
+        PrioridadTurno prioridad) throws SQLException {
+
+    Servicio servicio = servicioDAO.obtenerPorId(idServicio);
+
+    if (servicio == null) {
+        throw new IllegalArgumentException(
+            "El servicio seleccionado no existe."
+        );
+    }
+
+    if (prioridad == null) {
+        throw new IllegalArgumentException(
+            "Debe seleccionar una prioridad."
+        );
+    }
+
+    return generarTurno(servicio, prioridad);
+}
+
+
 }
