@@ -379,20 +379,27 @@ public Turno llamarSiguienteTurno(
         int idVentanilla) throws SQLException {
 
     String sqlBuscar = """
-        SELECT t.id_turno, t.codigo, t.id_servicio,
-               t.id_prioridad, t.fecha_generacion,
-               t.hora_generacion, s.prefijo, s.nombre,
-               p.nombre AS prioridad
-        FROM turno t
-        INNER JOIN servicio s
-            ON t.id_servicio = s.id_servicio
-        INNER JOIN prioridad p
-            ON t.id_prioridad = p.id_prioridad
-        WHERE t.estado = 'EN_ESPERA'
-        ORDER BY t.hora_generacion ASC
-        LIMIT 1
-        FOR UPDATE
-        """;
+    SELECT t.id_turno, t.codigo, t.id_servicio,
+           t.id_prioridad, t.fecha_generacion,
+           t.hora_generacion, s.prefijo, s.nombre,
+           p.nombre AS prioridad
+    FROM turno t
+    INNER JOIN servicio s
+        ON t.id_servicio = s.id_servicio
+    INNER JOIN prioridad p
+        ON t.id_prioridad = p.id_prioridad
+    WHERE t.estado = 'EN_ESPERA'
+    ORDER BY
+        CASE t.id_prioridad
+            WHEN 3 THEN 1
+            WHEN 2 THEN 2
+            WHEN 1 THEN 3
+            ELSE 4
+        END ASC,
+        t.hora_generacion ASC
+    LIMIT 1
+    FOR UPDATE
+    """;
 
     String sqlActualizar = """
         UPDATE turno

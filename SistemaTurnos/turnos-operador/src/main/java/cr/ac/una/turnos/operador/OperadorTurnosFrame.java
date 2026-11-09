@@ -1,9 +1,8 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
- */
 package cr.ac.una.turnos.operador;
-
+import java.util.List;
+import javax.swing.Timer;
+import javax.swing.SwingWorker;
+import cr.ac.una.turnos.common.enums.EstadoTurno;
 import javax.swing.JOptionPane;
 import cr.ac.una.turnos.common.domain.Turno;
 import cr.ac.una.turnos.server.service.TurnoService;
@@ -22,6 +21,8 @@ public class OperadorTurnosFrame extends javax.swing.JFrame {
 private final SesionService sesionService;
 private final Funcionario funcionario;
 private final int idVentanilla;
+private Timer timerActualizacion;
+private boolean actualizacionEnCurso = false;
 
 public OperadorTurnosFrame(
         SesionService sesionService,
@@ -54,6 +55,8 @@ public OperadorTurnosFrame(
     });
 
     cargarTurnosPendientes();
+    iniciarActualizacionAutomatica();
+    actualizarEstadoBotones();
 }
 
 private final DefaultTableModel modeloTabla =
@@ -74,7 +77,6 @@ private final DefaultTableModel modeloTabla =
         etiquetaTurnoActual = new javax.swing.JLabel();
         jScrollPane1 = new javax.swing.JScrollPane();
         tablaTurnos = new javax.swing.JTable();
-        botonActualizar = new javax.swing.JButton();
         botonLlamar = new javax.swing.JButton();
         botonIniciar = new javax.swing.JButton();
         botonFinalizar = new javax.swing.JButton();
@@ -108,9 +110,6 @@ private final DefaultTableModel modeloTabla =
         });
         jScrollPane1.setViewportView(tablaTurnos);
 
-        botonActualizar.setText("Actualizar");
-        botonActualizar.addActionListener(this::botonActualizarActionPerformed);
-
         botonLlamar.setText("Llamar siguiente");
         botonLlamar.addActionListener(this::botonLlamarActionPerformed);
 
@@ -126,8 +125,13 @@ private final DefaultTableModel modeloTabla =
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(etiquetaTurnoActual, javax.swing.GroupLayout.PREFERRED_SIZE, 174, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(230, 230, 230))
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                        .addComponent(etiquetaTurnoActual, javax.swing.GroupLayout.PREFERRED_SIZE, 174, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(230, 230, 230))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                        .addComponent(botonLlamar, javax.swing.GroupLayout.PREFERRED_SIZE, 279, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(181, 181, 181))))
             .addGroup(layout.createSequentialGroup()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
@@ -135,20 +139,15 @@ private final DefaultTableModel modeloTabla =
                         .addComponent(etiquetaTitulo, javax.swing.GroupLayout.PREFERRED_SIZE, 336, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(0, 150, Short.MAX_VALUE))
                     .addGroup(layout.createSequentialGroup()
-                        .addContainerGap()
-                        .addComponent(botonActualizar, javax.swing.GroupLayout.PREFERRED_SIZE, 300, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(40, 40, 40)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(botonLlamar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(botonFinalizar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
-                .addContainerGap())
-            .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                        .addGap(346, 346, 346)
+                        .addComponent(botonFinalizar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                     .addGroup(layout.createSequentialGroup()
-                        .addComponent(botonIniciar, javax.swing.GroupLayout.PREFERRED_SIZE, 300, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(0, 0, Short.MAX_VALUE))
-                    .addComponent(jScrollPane1))
+                        .addContainerGap()
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(layout.createSequentialGroup()
+                                .addComponent(botonIniciar, javax.swing.GroupLayout.PREFERRED_SIZE, 300, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGap(0, 0, Short.MAX_VALUE))
+                            .addComponent(jScrollPane1))))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
@@ -161,10 +160,8 @@ private final DefaultTableModel modeloTabla =
                 .addGap(18, 18, 18)
                 .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 162, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(18, 18, 18)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(botonLlamar, javax.swing.GroupLayout.DEFAULT_SIZE, 51, Short.MAX_VALUE)
-                    .addComponent(botonActualizar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(botonLlamar, javax.swing.GroupLayout.PREFERRED_SIZE, 51, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 12, Short.MAX_VALUE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(botonIniciar, javax.swing.GroupLayout.DEFAULT_SIZE, 51, Short.MAX_VALUE)
                     .addComponent(botonFinalizar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
@@ -177,20 +174,25 @@ private final DefaultTableModel modeloTabla =
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void botonActualizarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_botonActualizarActionPerformed
-        cargarTurnosPendientes();
-    }//GEN-LAST:event_botonActualizarActionPerformed
-
     private void botonLlamarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_botonLlamarActionPerformed
-        try {
-        turnoActual = turnoService.llamarSiguienteTurno(funcionario.getId(),
-        idVentanilla);
+       
+    if (turnoActual != null) {
+        JOptionPane.showMessageDialog(
+                this,
+                "Debe finalizar el turno actual antes de llamar otro.",
+                "Turno activo",
+                JOptionPane.WARNING_MESSAGE
+        );
+        return;
+    }
+
+    try {
+        turnoActual = turnoService.llamarSiguienteTurno(
+                funcionario.getId(),
+                idVentanilla
+        );
 
         if (turnoActual == null) {
-            etiquetaTurnoActual.setText(
-                    "Turno actual: ninguno"
-            );
-
             JOptionPane.showMessageDialog(
                     this,
                     "No hay turnos pendientes."
@@ -202,6 +204,7 @@ private final DefaultTableModel modeloTabla =
                 "Turno actual: " + turnoActual.getCodigo()
         );
 
+        actualizarEstadoBotones();
         cargarTurnosPendientes();
 
         JOptionPane.showMessageDialog(
@@ -220,22 +223,27 @@ private final DefaultTableModel modeloTabla =
     }//GEN-LAST:event_botonLlamarActionPerformed
 
     private void botonIniciarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_botonIniciarActionPerformed
-        try {
-        if (turnoActual == null) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Primero debe llamar un turno.",
-                    "Aviso",
-                    JOptionPane.WARNING_MESSAGE
-            );
-            return;
-        }
+        
+    if (turnoActual == null
+            || turnoActual.getEstado() != EstadoTurno.LLAMADO) {
 
+        JOptionPane.showMessageDialog(
+                this,
+                "Debe llamar un turno antes de iniciar la atención.",
+                "Aviso",
+                JOptionPane.WARNING_MESSAGE
+        );
+        return;
+    }
+
+    try {
         turnoService.iniciarAtencionTurno(turnoActual);
 
         etiquetaTurnoActual.setText(
                 "En atención: " + turnoActual.getCodigo()
         );
+
+        actualizarEstadoBotones();
 
         JOptionPane.showMessageDialog(
                 this,
@@ -254,17 +262,20 @@ private final DefaultTableModel modeloTabla =
     }//GEN-LAST:event_botonIniciarActionPerformed
 
     private void botonFinalizarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_botonFinalizarActionPerformed
-        try {
-        if (turnoActual == null) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "No hay un turno seleccionado.",
-                    "Aviso",
-                    JOptionPane.WARNING_MESSAGE
-            );
-            return;
-        }
+       
+    if (turnoActual == null
+            || turnoActual.getEstado() != EstadoTurno.EN_ATENCION) {
 
+        JOptionPane.showMessageDialog(
+                this,
+                "No hay un turno en atención para finalizar.",
+                "Aviso",
+                JOptionPane.WARNING_MESSAGE
+        );
+        return;
+    }
+
+    try {
         turnoService.finalizarAtencionTurno(turnoActual);
 
         JOptionPane.showMessageDialog(
@@ -275,10 +286,9 @@ private final DefaultTableModel modeloTabla =
 
         turnoActual = null;
 
-        etiquetaTurnoActual.setText(
-                "Turno actual: ninguno"
-        );
+        etiquetaTurnoActual.setText("Turno actual: ninguno");
 
+        actualizarEstadoBotones();
         cargarTurnosPendientes();
 
     } catch (RuntimeException e) {
@@ -342,6 +352,9 @@ private void cargarTurnosPendientes() {
     }
 }
 private void cerrarSesion() {
+    if (timerActualizacion != null) {
+    timerActualizacion.stop();
+}
 
     int respuesta = JOptionPane.showConfirmDialog(
             this,
@@ -356,6 +369,9 @@ private void cerrarSesion() {
 
     try {
         sesionService.cerrarSesion();
+        if (timerActualizacion != null) {
+    timerActualizacion.stop();
+}
 
         dispose();
 
@@ -373,10 +389,83 @@ private void cerrarSesion() {
                 JOptionPane.ERROR_MESSAGE
         );
     }
+    
+    if (respuesta != JOptionPane.YES_OPTION) {
+    if (timerActualizacion != null) {
+        timerActualizacion.start();
+    }
+    return;
+}
+}
+private void iniciarActualizacionAutomatica() {
+
+    timerActualizacion = new Timer(3000, e -> actualizarTablaAutomaticamente());
+
+    timerActualizacion.start();
+}
+
+private void actualizarTablaAutomaticamente() {
+
+    if (actualizacionEnCurso) {
+        return;
+    }
+
+    actualizacionEnCurso = true;
+
+    SwingWorker<List<Turno>, Void> worker = new SwingWorker<>() {
+
+        @Override
+        protected List<Turno> doInBackground() throws Exception {
+            return turnoService.consultarTurnosPendientes();
+        }
+
+        @Override
+        protected void done() {
+            try {
+                List<Turno> turnos = get();
+
+                modeloTabla.setRowCount(0);
+
+                for (Turno turno : turnos) {
+                    modeloTabla.addRow(new Object[]{
+                        turno.getCodigo(),
+                        turno.getServicio().getNombre(),
+                        turno.getPrioridad().name(),
+                        turno.getEstado().name()
+                    });
+                }
+
+            } catch (Exception e) {
+                logger.log(
+                    java.util.logging.Level.SEVERE,
+                    "Error al actualizar los turnos",
+                    e
+                );
+            } finally {
+                actualizacionEnCurso = false;
+            }
+        }
+    };
+
+    worker.execute();
+}
+
+private void actualizarEstadoBotones() {
+
+    boolean hayTurno = turnoActual != null;
+
+    boolean estaLlamado = hayTurno
+            && turnoActual.getEstado() == EstadoTurno.LLAMADO;
+
+    boolean enAtencion = hayTurno
+            && turnoActual.getEstado() == EstadoTurno.EN_ATENCION;
+
+    botonLlamar.setEnabled(!hayTurno);
+    botonIniciar.setEnabled(estaLlamado);
+    botonFinalizar.setEnabled(enAtencion);
 }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton botonActualizar;
     private javax.swing.JButton botonFinalizar;
     private javax.swing.JButton botonIniciar;
     private javax.swing.JButton botonLlamar;
