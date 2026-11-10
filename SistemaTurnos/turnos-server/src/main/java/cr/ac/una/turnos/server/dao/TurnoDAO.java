@@ -674,5 +674,89 @@ public List<Turno> obtenerTurnosEnAtencion()
 }
 
 
+public Turno obtenerPorId(int idTurno) throws SQLException {
+
+    String sql = """
+        SELECT t.id_turno, t.codigo, t.estado,
+               t.fecha_generacion, t.hora_generacion,
+               t.hora_llamado, t.hora_inicio_atencion,
+               t.hora_fin_atencion, t.id_ventanilla,
+               t.id_funcionario,
+               s.id_servicio, s.prefijo, s.nombre,
+               p.nombre AS prioridad
+        FROM turno t
+        INNER JOIN servicio s
+            ON t.id_servicio = s.id_servicio
+        INNER JOIN prioridad p
+            ON t.id_prioridad = p.id_prioridad
+        WHERE t.id_turno = ?
+        """;
+
+    try (Connection conexion = DatabaseConfig.obtenerConexion();
+         PreparedStatement ps = conexion.prepareStatement(sql)) {
+
+        ps.setInt(1, idTurno);
+
+        try (ResultSet rs = ps.executeQuery()) {
+
+            if (!rs.next()) {
+                return null;
+            }
+
+            Servicio servicio = new Servicio(
+                rs.getInt("id_servicio"),
+                rs.getString("prefijo"),
+                rs.getString("nombre"),
+                null,
+                true
+            );
+
+            Turno turno = new Turno();
+
+            turno.setId(rs.getInt("id_turno"));
+            turno.setCodigo(rs.getString("codigo"));
+            turno.setServicio(servicio);
+            turno.setPrioridad(
+                PrioridadTurno.valueOf(rs.getString("prioridad"))
+            );
+            turno.setEstado(
+                EstadoTurno.valueOf(rs.getString("estado"))
+            );
+
+            Timestamp generacion = rs.getTimestamp("hora_generacion");
+            if (generacion != null) {
+                turno.setFechaGeneracion(generacion.toLocalDateTime());
+            }
+
+            Timestamp llamado = rs.getTimestamp("hora_llamado");
+            if (llamado != null) {
+                turno.setFechaLlamado(llamado.toLocalDateTime());
+            }
+
+            Timestamp inicio = rs.getTimestamp("hora_inicio_atencion");
+            if (inicio != null) {
+                turno.setFechaInicioAtencion(inicio.toLocalDateTime());
+            }
+
+            Timestamp fin = rs.getTimestamp("hora_fin_atencion");
+            if (fin != null) {
+                turno.setFechaFinAtencion(fin.toLocalDateTime());
+            }
+
+            int idVentanilla = rs.getInt("id_ventanilla");
+            if (!rs.wasNull()) {
+                turno.setIdVentanilla(idVentanilla);
+            }
+
+            int idFuncionario = rs.getInt("id_funcionario");
+            if (!rs.wasNull()) {
+                turno.setIdFuncionario(idFuncionario);
+            }
+
+            return turno;
+        }
+    }
+}
+
 
 }

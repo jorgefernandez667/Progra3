@@ -330,4 +330,15 @@ public Turno generarTurnoTCP(
 }
 
 
+public Turno consultarTurnoPorId(int idTurno) throws SQLException {
+
+    if (idTurno <= 0) {
+        throw new IllegalArgumentException(
+            "El ID del turno debe ser válido."
+        );
+    }
+
+    return turnoDAO.obtenerPorId(idTurno);
+}
+
 }
