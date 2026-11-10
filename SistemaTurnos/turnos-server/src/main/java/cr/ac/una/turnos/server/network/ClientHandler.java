@@ -129,6 +129,9 @@ public class ClientHandler implements Runnable {
         
     case INICIAR_ATENCION:
         return iniciarAtencion(request);
+        
+    case FINALIZAR_ATENCION:
+        return finalizarAtencion(request);
 
 
     default:
@@ -494,6 +497,71 @@ private Response iniciarAtencion(Request request)
         TipoMensaje.INICIAR_ATENCION,
         true,
         "La atención del turno inició correctamente.",
+        turnoDTO
+    );
+}
+private Response finalizarAtencion(Request request)
+        throws SQLException {
+
+    if (!sesionService.haySesionActiva()) {
+        throw new IllegalStateException(
+            "Debe iniciar sesión para finalizar la atención."
+        );
+    }
+
+    if (request.getDatos() == null) {
+        throw new IllegalArgumentException(
+            "Debe indicar el ID del turno."
+        );
+    }
+
+    Map<String, Object> datos = mapper.convertValue(
+        request.getDatos(),
+        new TypeReference<Map<String, Object>>() {}
+    );
+
+    Object valorIdTurno = datos.get("idTurno");
+
+    if (valorIdTurno == null) {
+        throw new IllegalArgumentException(
+            "Debe indicar el ID del turno."
+        );
+    }
+
+    int idTurno = Integer.parseInt(valorIdTurno.toString());
+
+    Turno turno = turnoService.consultarTurnoPorId(idTurno);
+
+    if (turno == null) {
+        throw new IllegalArgumentException(
+            "El turno indicado no existe."
+        );
+    }
+
+    Funcionario funcionario =
+        sesionService.getFuncionarioActual();
+
+    Integer idVentanilla =
+        sesionService.getIdVentanillaActual();
+
+    if (!Integer.valueOf(funcionario.getId()).equals(
+            turno.getIdFuncionario())
+            || !idVentanilla.equals(turno.getIdVentanilla())) {
+
+        throw new IllegalStateException(
+            "El turno no está asignado a esta sesión."
+        );
+    }
+
+    turnoService.finalizarAtencionTurno(turno);
+
+    TurnoDTO turnoDTO = convertirTurno(turno);
+
+    return new Response(
+        request.getIdSolicitud(),
+        TipoMensaje.FINALIZAR_ATENCION,
+        true,
+        "La atención del turno finalizó correctamente.",
         turnoDTO
     );
 }
