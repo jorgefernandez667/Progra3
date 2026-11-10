@@ -341,4 +341,51 @@ public Turno consultarTurnoPorId(int idTurno) throws SQLException {
     return turnoDAO.obtenerPorId(idTurno);
 }
 
+public synchronized void reclamarTurno(
+        Turno turno,
+        int idFuncionario,
+        int idVentanilla) {
+
+    if (turno == null) {
+        throw new IllegalArgumentException(
+                "No hay un turno seleccionado."
+        );
+    }
+
+    if (turno.getEstado() != EstadoTurno.LLAMADO) {
+        throw new IllegalStateException(
+                "Solo se puede reclamar un turno que está llamado."
+        );
+    }
+
+    if (idFuncionario <= 0 || idVentanilla <= 0) {
+        throw new IllegalArgumentException(
+                "El funcionario y la ventanilla deben ser válidos."
+        );
+    }
+
+    if (turno.getIdFuncionario() != idFuncionario
+            || turno.getIdVentanilla() != idVentanilla) {
+        throw new IllegalStateException(
+                "El turno no pertenece a este funcionario o ventanilla."
+        );
+    }
+
+    try {
+        turnoDAO.reclamarTurno(
+                turno.getId(),
+                idFuncionario,
+                idVentanilla
+        );
+
+        turno.setFechaLlamado(LocalDateTime.now());
+
+    } catch (SQLException e) {
+        throw new IllegalStateException(
+                "No se pudo reclamar el turno.",
+                e
+        );
+    }
+}
+
 }

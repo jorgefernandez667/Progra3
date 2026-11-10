@@ -758,5 +758,72 @@ public Turno obtenerPorId(int idTurno) throws SQLException {
     }
 }
 
+public void reclamarTurno(
+        int idTurno,
+        int idFuncionario,
+        int idVentanilla) throws SQLException {
+
+    String sqlActualizar = """
+        UPDATE turno
+        SET hora_llamado = ?
+        WHERE id_turno = ?
+          AND estado = 'LLAMADO'
+          AND id_funcionario = ?
+          AND id_ventanilla = ?
+        """;
+
+    String sqlHistorial = """
+        INSERT INTO historial_turno
+            (id_turno, estado, fecha_hora,
+             id_funcionario, id_ventanilla, comentario)
+        VALUES (?, 'LLAMADO', ?, ?, ?, ?)
+        """;
+
+    LocalDateTime ahora = LocalDateTime.now();
+
+    try (Connection conexion = DatabaseConfig.obtenerConexion()) {
+
+        conexion.setAutoCommit(false);
+
+        try {
+            try (PreparedStatement ps =
+                    conexion.prepareStatement(sqlActualizar)) {
+
+                ps.setTimestamp(1, Timestamp.valueOf(ahora));
+                ps.setInt(2, idTurno);
+                ps.setInt(3, idFuncionario);
+                ps.setInt(4, idVentanilla);
+
+                if (ps.executeUpdate() != 1) {
+                    throw new IllegalStateException(
+                        "El turno no está llamado o no pertenece "
+                        + "a esta ventanilla."
+                    );
+                }
+            }
+
+            try (PreparedStatement ps =
+                    conexion.prepareStatement(sqlHistorial)) {
+
+                ps.setInt(1, idTurno);
+                ps.setTimestamp(2, Timestamp.valueOf(ahora));
+                ps.setInt(3, idFuncionario);
+                ps.setInt(4, idVentanilla);
+                ps.setString(5, "Turno vuelto a llamar");
+
+                ps.executeUpdate();
+            }
+
+            conexion.commit();
+
+        } catch (SQLException | RuntimeException e) {
+            conexion.rollback();
+            throw e;
+
+        } finally {
+            conexion.setAutoCommit(true);
+        }
+    }
+}
 
 }
