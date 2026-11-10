@@ -11,7 +11,7 @@ import cr.ac.una.turnos.common.protocol.Response;
 import cr.ac.una.turnos.common.dto.ServicioDTO;
 import cr.ac.una.turnos.server.service.SesionService;
 import java.util.List;
-
+import cr.ac.una.turnos.common.enums.PrioridadTurno;
 import cr.ac.una.turnos.common.domain.Servicio;
 import cr.ac.una.turnos.common.domain.Turno;
 import java.io.BufferedReader;
@@ -24,6 +24,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import cr.ac.una.turnos.server.service.TurnoService;
 
 public class ClientHandler implements Runnable {
 
@@ -32,6 +33,7 @@ public class ClientHandler implements Runnable {
 
     // Cada conexión TCP tiene su propia sesión.
     private final SesionService sesionService = new SesionService();
+    private final TurnoService turnoService = new TurnoService();
 
     public ClientHandler(Socket socket, ObjectMapper mapper) {
         this.socket = socket;
@@ -106,21 +108,27 @@ public class ClientHandler implements Runnable {
 
         try {
 
-            switch (request.getTipo()) {
+           switch (request.getTipo()) {
 
-                case LOGIN:
-                    return iniciarSesion(request);
+    case LOGIN:
+        return iniciarSesion(request);
 
-                case LOGOUT:
-                    return cerrarSesion(request);
+    case LOGOUT:
+        return cerrarSesion(request);
 
-                default:
-                    return respuestaError(
-                        request.getIdSolicitud(),
-                        "Tipo de solicitud todavía no implementado: "
-                            + request.getTipo()
-                    );
-            }
+    case OBTENER_SERVICIOS:
+        return obtenerServicios(request);
+        
+    case GENERAR_TURNO:
+        return generarTurno(request);
+
+    default:
+        return respuestaError(
+            request.getIdSolicitud(),
+            "Tipo de solicitud todavía no implementado: "
+                + request.getTipo()
+        );
+}
 
         } catch (IllegalArgumentException | IllegalStateException e) {
 
@@ -241,6 +249,67 @@ public class ClientHandler implements Runnable {
             null
         );
     }
+    private Response obtenerServicios(Request request)
+        throws SQLException {
+
+    List<Servicio> servicios = turnoService.consultarServicios();
+
+    List<ServicioDTO> serviciosDTO = convertirServicios(servicios);
+
+    return new Response(
+        request.getIdSolicitud(),
+        TipoMensaje.OBTENER_SERVICIOS,
+        true,
+        "Servicios obtenidos correctamente.",
+        serviciosDTO
+    );
+}
+    private Response generarTurno(Request request)
+        throws SQLException {
+
+    if (request.getDatos() == null) {
+        throw new IllegalArgumentException(
+            "Faltan los datos para generar el turno."
+        );
+    }
+
+    Map<String, Object> datos = mapper.convertValue(
+        request.getDatos(),
+        new TypeReference<Map<String, Object>>() {}
+    );
+
+    Object valorIdServicio = datos.get("idServicio");
+    Object valorPrioridad = datos.get("prioridad");
+
+    if (valorIdServicio == null || valorPrioridad == null) {
+        throw new IllegalArgumentException(
+            "Debe indicar el servicio y la prioridad."
+        );
+    }
+
+    int idServicio = Integer.parseInt(
+        valorIdServicio.toString()
+    );
+
+    PrioridadTurno prioridad = PrioridadTurno.valueOf(
+        valorPrioridad.toString().trim().toUpperCase()
+    );
+
+    Turno turno = turnoService.generarTurnoTCP(
+        idServicio,
+        prioridad
+    );
+
+    TurnoDTO turnoDTO = convertirTurno(turno);
+
+    return new Response(
+        request.getIdSolicitud(),
+        TipoMensaje.GENERAR_TURNO,
+        true,
+        "Turno generado correctamente.",
+        turnoDTO
+    );
+}
 
     private String obtenerTexto(Object valor) {
 
