@@ -26,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import cr.ac.una.turnos.server.service.TurnoService;
 
+
 public class ClientHandler implements Runnable {
 
     private final Socket socket;
@@ -33,6 +34,7 @@ public class ClientHandler implements Runnable {
 
     // Cada conexión TCP tiene su propia sesión.
     private final SesionService sesionService = new SesionService();
+    
     private final TurnoService turnoService = new TurnoService();
 
     public ClientHandler(Socket socket, ObjectMapper mapper) {
@@ -121,6 +123,9 @@ public class ClientHandler implements Runnable {
         
     case GENERAR_TURNO:
         return generarTurno(request);
+    
+    case SOLICITAR_SIGUIENTE_TURNO:
+        return solicitarSiguienteTurno(request);
 
     default:
         return respuestaError(
@@ -355,6 +360,45 @@ public class ClientHandler implements Runnable {
             );
         }
     }
+    private Response solicitarSiguienteTurno(Request request) {
+
+    if (!sesionService.haySesionActiva()) {
+        throw new IllegalStateException(
+            "Debe iniciar sesión para solicitar un turno."
+        );
+    }
+
+    Funcionario funcionario =
+        sesionService.getFuncionarioActual();
+
+    Integer idVentanilla =
+        sesionService.getIdVentanillaActual();
+
+    Turno turno = turnoService.llamarSiguienteTurno(
+        funcionario.getId(),
+        idVentanilla
+    );
+
+    if (turno == null) {
+        return new Response(
+            request.getIdSolicitud(),
+            TipoMensaje.SOLICITAR_SIGUIENTE_TURNO,
+            true,
+            "No hay turnos pendientes.",
+            null
+        );
+    }
+
+    TurnoDTO turnoDTO = convertirTurno(turno);
+
+    return new Response(
+        request.getIdSolicitud(),
+        TipoMensaje.SOLICITAR_SIGUIENTE_TURNO,
+        true,
+        "Turno llamado correctamente.",
+        turnoDTO
+    );
+}
     private List<ServicioDTO> convertirServicios(List<Servicio> servicios) {
     return servicios.stream()
         .map(s -> new ServicioDTO(
