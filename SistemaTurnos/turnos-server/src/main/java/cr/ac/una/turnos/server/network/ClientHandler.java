@@ -132,6 +132,9 @@ public class ClientHandler implements Runnable {
         
     case FINALIZAR_ATENCION:
         return finalizarAtencion(request);
+    
+    case RECLAMAR_TURNO:
+    return reclamarTurno(request);
 
 
     default:
@@ -562,6 +565,76 @@ private Response finalizarAtencion(Request request)
         TipoMensaje.FINALIZAR_ATENCION,
         true,
         "La atención del turno finalizó correctamente.",
+        turnoDTO
+    );
+}
+
+private Response reclamarTurno(Request request)
+        throws SQLException {
+
+    if (!sesionService.haySesionActiva()) {
+        throw new IllegalStateException(
+            "Debe iniciar sesión para reclamar un turno."
+        );
+    }
+
+    if (request.getDatos() == null) {
+        throw new IllegalArgumentException(
+            "Debe indicar el ID del turno."
+        );
+    }
+
+    Map<String, Object> datos = mapper.convertValue(
+        request.getDatos(),
+        new TypeReference<Map<String, Object>>() {}
+    );
+
+    Object valorIdTurno = datos.get("idTurno");
+
+    if (valorIdTurno == null) {
+        throw new IllegalArgumentException(
+            "Debe indicar el ID del turno."
+        );
+    }
+
+    int idTurno = Integer.parseInt(valorIdTurno.toString());
+
+    Turno turno = turnoService.consultarTurnoPorId(idTurno);
+
+    if (turno == null) {
+        throw new IllegalArgumentException(
+            "El turno indicado no existe."
+        );
+    }
+
+    Funcionario funcionario =
+        sesionService.getFuncionarioActual();
+
+    Integer idVentanilla =
+        sesionService.getIdVentanillaActual();
+
+    if (!Integer.valueOf(funcionario.getId()).equals(
+            turno.getIdFuncionario())
+            || !idVentanilla.equals(turno.getIdVentanilla())) {
+
+        throw new IllegalStateException(
+            "El turno no está asignado a esta sesión."
+        );
+    }
+
+    turnoService.reclamarTurno(
+        turno,
+        funcionario.getId(),
+        idVentanilla
+    );
+
+    TurnoDTO turnoDTO = convertirTurno(turno);
+
+    return new Response(
+        request.getIdSolicitud(),
+        TipoMensaje.RECLAMAR_TURNO,
+        true,
+        "Turno vuelto a llamar correctamente.",
         turnoDTO
     );
 }
