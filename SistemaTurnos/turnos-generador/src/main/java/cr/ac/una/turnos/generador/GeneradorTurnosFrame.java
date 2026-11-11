@@ -3,10 +3,13 @@ package cr.ac.una.turnos.generador;
 
 import javax.swing.*;
 import java.awt.*;
-import cr.ac.una.turnos.common.domain.Servicio;
-import cr.ac.una.turnos.common.domain.Turno;
 import cr.ac.una.turnos.common.enums.PrioridadTurno;
-import cr.ac.una.turnos.server.service.TurnoService;
+import cr.ac.una.turnos.common.dto.TurnoDTO;
+import cr.ac.una.turnos.common.enums.TipoMensaje;
+import cr.ac.una.turnos.common.network.TcpClient;
+import cr.ac.una.turnos.common.protocol.Response;
+import cr.ac.una.turnos.common.util.JsonUtil;
+import java.util.Map;
 
 public class GeneradorTurnosFrame extends javax.swing.JFrame {
     
@@ -16,7 +19,7 @@ public class GeneradorTurnosFrame extends javax.swing.JFrame {
      * Creates new form GeneradorTurnosFrame
      */
     
-    private final TurnoService turnoService = new TurnoService();
+   
     
     public GeneradorTurnosFrame() {
         initComponents();
@@ -159,11 +162,6 @@ private void generarTurno() {
         }
     }
 
-    Servicio servicio = new Servicio();
-    servicio.setId(idServicio);
-    servicio.setCodigo(prefijo);
-    servicio.setNombre(servicioSeleccionado);
-    servicio.setActivo(true);
 
     try {
        PrioridadTurno prioridadSeleccionada =
@@ -179,23 +177,39 @@ if (prioridadSeleccionada == null) {
     return;
 }
 
-Turno turno = turnoService.generarTurno(
-        servicio,
-        prioridadSeleccionada
+TcpClient cliente = new TcpClient();
+
+Map<String, Object> datos = Map.of(
+        "idServicio", idServicio,
+        "prioridad", prioridadSeleccionada.name()
 );
 
-        etiquetaTurno.setText(turno.getCodigo());
-        etiquetaMensaje.setText(
-                "Turno generado: " + servicioSeleccionado
-        );
+Response respuesta = cliente.enviarSolicitud(
+        TipoMensaje.GENERAR_TURNO,
+        datos
+);
 
-        JOptionPane.showMessageDialog(
-                this,
-                "Turno generado y guardado correctamente: "
-                        + turno.getCodigo(),
-                "Turno generado",
-                JOptionPane.INFORMATION_MESSAGE
-        );
+if (!respuesta.isExitoso()) {
+    throw new Exception(respuesta.getMensaje());
+}
+
+TurnoDTO turno = JsonUtil.convertirDesdeJson(
+        JsonUtil.convertirAJson(respuesta.getDatos()),
+        TurnoDTO.class
+);
+
+etiquetaTurno.setText(turno.getCodigo());
+etiquetaMensaje.setText(
+        "Turno generado: " + servicioSeleccionado
+);
+
+JOptionPane.showMessageDialog(
+        this,
+        "Turno generado y guardado correctamente: "
+                + turno.getCodigo(),
+        "Turno generado",
+        JOptionPane.INFORMATION_MESSAGE
+);
 
     } catch (Exception e) {
         JOptionPane.showMessageDialog(
