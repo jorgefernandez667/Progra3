@@ -5,8 +5,9 @@ import javax.swing.SwingWorker;
 import cr.ac.una.turnos.common.enums.EstadoTurno;
 import javax.swing.JOptionPane;
 import cr.ac.una.turnos.common.domain.Turno;
-import cr.ac.una.turnos.server.service.TurnoService;
-import java.sql.SQLException;
+import cr.ac.una.turnos.common.dto.TurnoDTO;
+import java.util.Map;
+import java.util.ArrayList;
 import javax.swing.table.DefaultTableModel;
 import cr.ac.una.turnos.common.domain.Funcionario;
 import cr.ac.una.turnos.common.enums.TipoMensaje;
@@ -14,11 +15,10 @@ import cr.ac.una.turnos.common.protocol.Response;
 import cr.ac.una.turnos.common.network.TcpSessionClient;
 
 public class OperadorTurnosFrame extends javax.swing.JFrame {
-    private Turno turnoActual;
+private TurnoDTO turnoActual;
     
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(OperadorTurnosFrame.class.getName());
 
-    private final TurnoService turnoService = new TurnoService();
 
 private final TcpSessionClient cliente;
 private final Funcionario funcionario;

@@ -135,6 +135,9 @@ public class ClientHandler implements Runnable {
     
     case RECLAMAR_TURNO:
     return reclamarTurno(request);
+    
+    case OBTENER_TURNOS_PENDIENTES:
+    return obtenerTurnosPendientes(request);
 
 
     default:
@@ -636,6 +639,29 @@ private Response reclamarTurno(Request request)
         true,
         "Turno vuelto a llamar correctamente.",
         turnoDTO
+    );
+}
+private Response obtenerTurnosPendientes(Request request)
+        throws SQLException {
+
+    if (!sesionService.haySesionActiva()) {
+        throw new IllegalStateException(
+            "Debe iniciar sesión para consultar los turnos pendientes."
+        );
+    }
+
+    List<Turno> turnos = turnoService.consultarTurnosPendientes();
+
+    List<TurnoDTO> turnosDTO = turnos.stream()
+        .map(this::convertirTurno)
+        .toList();
+
+    return new Response(
+        request.getIdSolicitud(),
+        TipoMensaje.OBTENER_TURNOS_PENDIENTES,
+        true,
+        "Turnos pendientes obtenidos correctamente.",
+        turnosDTO
     );
 }
 
