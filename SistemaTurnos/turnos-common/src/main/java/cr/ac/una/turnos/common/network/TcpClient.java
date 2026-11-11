@@ -17,8 +17,30 @@ import java.util.UUID;
 
 public class TcpClient {
 
-    private static final String HOST = "localhost";
-    private static final int PORT = 5000;
+    private static final String HOST = obtenerHost();
+    private static final int PORT = obtenerPuerto();
+
+    private static String obtenerHost() {
+        return System.getProperty(
+                "turnos.server.host",
+                System.getenv().getOrDefault(
+                        "TURNOS_SERVER_HOST",
+                        "localhost"
+                )
+        );
+    }
+
+    private static int obtenerPuerto() {
+        String puerto = System.getProperty(
+                "turnos.server.port",
+                System.getenv().getOrDefault(
+                        "TURNOS_SERVER_PORT",
+                        "5000"
+                )
+        );
+
+        return Integer.parseInt(puerto);
+    }
 
     public Response enviarSolicitud(
             TipoMensaje tipo,
@@ -32,21 +54,23 @@ public class TcpClient {
                 datos
         );
 
-        try (Socket socket = new Socket(HOST, PORT);
-             BufferedWriter salida = new BufferedWriter(
-                     new OutputStreamWriter(
-                             socket.getOutputStream(),
-                             StandardCharsets.UTF_8
-                     )
-             );
-             BufferedReader entrada = new BufferedReader(
-                     new InputStreamReader(
-                             socket.getInputStream(),
-                             StandardCharsets.UTF_8
-                     )
-             )) {
+        try (Socket socket = new Socket(HOST, PORT)) {
 
             socket.setSoTimeout(10000);
+
+            BufferedWriter salida = new BufferedWriter(
+                    new OutputStreamWriter(
+                            socket.getOutputStream(),
+                            StandardCharsets.UTF_8
+                    )
+            );
+
+            BufferedReader entrada = new BufferedReader(
+                    new InputStreamReader(
+                            socket.getInputStream(),
+                            StandardCharsets.UTF_8
+                    )
+            );
 
             salida.write(JsonUtil.convertirAJson(request));
             salida.newLine();
@@ -60,10 +84,19 @@ public class TcpClient {
                 );
             }
 
-            Response response = JsonUtil.convertirDesdeJson(
-                    respuestaJson,
-                    Response.class
-            );
+            Response response;
+
+            try {
+                response = JsonUtil.convertirDesdeJson(
+                        respuestaJson,
+                        Response.class
+                );
+            } catch (IllegalArgumentException e) {
+                throw new IOException(
+                        "No se pudo interpretar la respuesta del servidor.",
+                        e
+                );
+            }
 
             if (!idSolicitud.equals(response.getIdSolicitud())) {
                 throw new IOException(

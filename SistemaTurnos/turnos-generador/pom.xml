@@ -19,10 +19,10 @@
    <dependencies>
 
         <dependency>
-            <groupId>cr.ac.una</groupId>
-            <artifactId>turnos-server</artifactId>
-            <version>1.0-SNAPSHOT</version>
-        </dependency>
+    <groupId>cr.ac.una</groupId>
+    <artifactId>turnos-common</artifactId>
+    <version>1.0-SNAPSHOT</version>
+</dependency>
 
 
     </dependencies>
