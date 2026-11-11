@@ -9,7 +9,9 @@ import cr.ac.una.turnos.server.service.TurnoService;
 import java.sql.SQLException;
 import javax.swing.table.DefaultTableModel;
 import cr.ac.una.turnos.common.domain.Funcionario;
-import cr.ac.una.turnos.server.service.SesionService;
+import cr.ac.una.turnos.common.enums.TipoMensaje;
+import cr.ac.una.turnos.common.protocol.Response;
+import cr.ac.una.turnos.common.network.TcpSessionClient;
 
 public class OperadorTurnosFrame extends javax.swing.JFrame {
     private Turno turnoActual;
@@ -18,20 +20,22 @@ public class OperadorTurnosFrame extends javax.swing.JFrame {
 
     private final TurnoService turnoService = new TurnoService();
 
-private final SesionService sesionService;
+private final TcpSessionClient cliente;
 private final Funcionario funcionario;
 private final int idVentanilla;
 private Timer timerActualizacion;
 private boolean actualizacionEnCurso = false;
 
 public OperadorTurnosFrame(
-        SesionService sesionService,
+        TcpSessionClient cliente,
         Funcionario funcionario,
         int idVentanilla) {
 
-    this.sesionService = sesionService;
+    this.cliente = cliente;
     this.funcionario = funcionario;
     this.idVentanilla = idVentanilla;
+
+    // El resto del constructor se conserva temporalmente.
 
     initComponents();
 
@@ -352,9 +356,6 @@ private void cargarTurnosPendientes() {
     }
 }
 private void cerrarSesion() {
-    if (timerActualizacion != null) {
-    timerActualizacion.stop();
-}
 
     int respuesta = JOptionPane.showConfirmDialog(
             this,
@@ -367,11 +368,23 @@ private void cerrarSesion() {
         return;
     }
 
+    if (timerActualizacion != null) {
+        timerActualizacion.stop();
+    }
+
     try {
-        sesionService.cerrarSesion();
-        if (timerActualizacion != null) {
-    timerActualizacion.stop();
-}
+        Response respuestaServidor = cliente.enviarSolicitud(
+                TipoMensaje.LOGOUT,
+                null
+        );
+
+        if (!respuestaServidor.isExitoso()) {
+            throw new IllegalStateException(
+                    respuestaServidor.getMensaje()
+            );
+        }
+
+        cliente.close();
 
         dispose();
 
@@ -380,7 +393,7 @@ private void cerrarSesion() {
                 "Sesión cerrada correctamente."
         );
 
-    } catch (SQLException | RuntimeException e) {
+    } catch (Exception e) {
 
         JOptionPane.showMessageDialog(
                 this,
@@ -388,14 +401,11 @@ private void cerrarSesion() {
                 "Error",
                 JOptionPane.ERROR_MESSAGE
         );
+
+        if (timerActualizacion != null) {
+            timerActualizacion.start();
+        }
     }
-    
-    if (respuesta != JOptionPane.YES_OPTION) {
-    if (timerActualizacion != null) {
-        timerActualizacion.start();
-    }
-    return;
-}
 }
 private void iniciarActualizacionAutomatica() {
 

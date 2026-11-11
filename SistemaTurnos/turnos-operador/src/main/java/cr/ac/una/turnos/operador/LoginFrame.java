@@ -2,11 +2,15 @@
 package cr.ac.una.turnos.operador;
 
 import cr.ac.una.turnos.common.domain.Funcionario;
-import cr.ac.una.turnos.server.service.SesionService;
+import cr.ac.una.turnos.common.domain.Usuario;
+import cr.ac.una.turnos.common.enums.TipoMensaje;
+import cr.ac.una.turnos.common.enums.TipoUsuario;
+import cr.ac.una.turnos.common.network.TcpSessionClient;
+import cr.ac.una.turnos.common.protocol.Response;
 
 import java.awt.BorderLayout;
 import java.awt.GridLayout;
-import java.sql.SQLException;
+import java.util.Map;
 import javax.swing.*;
 
 public class LoginFrame extends JFrame {
@@ -28,23 +32,22 @@ public class LoginFrame extends JFrame {
                 SwingConstants.CENTER
         );
 
-        titulo.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 16));
+        titulo.setFont(new java.awt.Font(
+                "Segoe UI", java.awt.Font.BOLD, 16
+        ));
 
         campoUsuario = new JTextField();
         campoContrasena = new JPasswordField();
-
         botonIngresar = new JButton("Iniciar sesión");
 
         JPanel panelCampos = new JPanel(new GridLayout(2, 2, 10, 10));
 
         panelCampos.add(new JLabel("Usuario:"));
         panelCampos.add(campoUsuario);
-
         panelCampos.add(new JLabel("Contraseña:"));
         panelCampos.add(campoContrasena);
 
         JPanel panelPrincipal = new JPanel(new BorderLayout(15, 15));
-
         panelPrincipal.setBorder(
                 BorderFactory.createEmptyBorder(20, 25, 20, 25)
         );
@@ -56,7 +59,6 @@ public class LoginFrame extends JFrame {
         add(panelPrincipal);
 
         botonIngresar.addActionListener(e -> iniciarSesion());
-
         getRootPane().setDefaultButton(botonIngresar);
     }
 
@@ -69,36 +71,73 @@ public class LoginFrame extends JFrame {
         );
 
         if (usuario.isEmpty() || contrasena.isBlank()) {
-
             JOptionPane.showMessageDialog(
                     this,
                     "Debe ingresar el usuario y la contraseña.",
                     "Campos obligatorios",
                     JOptionPane.WARNING_MESSAGE
             );
-
             return;
         }
 
         botonIngresar.setEnabled(false);
 
+        TcpSessionClient cliente = null;
+
         try {
 
-            SesionService sesionService = new SesionService();
+            cliente = new TcpSessionClient();
 
-            sesionService.iniciarSesion(usuario, contrasena);
+            Map<String, Object> datos = Map.of(
+                    "nombreUsuario", usuario,
+                    "contrasena", contrasena
+            );
 
-            Funcionario funcionario =
-                    sesionService.getFuncionarioActual();
+            Response respuesta = cliente.enviarSolicitud(
+                    TipoMensaje.LOGIN,
+                    datos
+            );
 
-            Integer idVentanilla =
-                    sesionService.getIdVentanillaActual();
-
-            if (funcionario == null || idVentanilla == null) {
+            if (!respuesta.isExitoso()) {
                 throw new IllegalStateException(
-                        "No se pudo establecer la sesión del operador."
+                        respuesta.getMensaje()
                 );
             }
+
+            Map<?, ?> datosRespuesta =
+                    (Map<?, ?>) respuesta.getDatos();
+
+            int idFuncionario = ((Number)
+                    datosRespuesta.get("idFuncionario")).intValue();
+
+            int idUsuario = ((Number)
+                    datosRespuesta.get("idUsuario")).intValue();
+
+            int idVentanilla = ((Number)
+                    datosRespuesta.get("idVentanilla")).intValue();
+
+            String nombreCompleto =
+                    datosRespuesta.get("nombreCompleto").toString();
+
+            String nombreUsuario =
+                    datosRespuesta.get("nombreUsuario").toString();
+
+            TipoUsuario tipo = TipoUsuario.valueOf(
+                    datosRespuesta.get("tipo").toString()
+            );
+
+            Usuario usuarioActual = new Usuario(
+                    idUsuario,
+                    nombreUsuario,
+                    tipo,
+                    true
+            );
+
+            Funcionario funcionario = new Funcionario(
+                    idFuncionario,
+                    usuarioActual,
+                    nombreCompleto
+            );
 
             JOptionPane.showMessageDialog(
                     this,
@@ -110,7 +149,7 @@ public class LoginFrame extends JFrame {
 
             OperadorTurnosFrame ventanaOperador =
                     new OperadorTurnosFrame(
-                            sesionService,
+                            cliente,
                             funcionario,
                             idVentanilla
                     );
@@ -118,9 +157,10 @@ public class LoginFrame extends JFrame {
             ventanaOperador.setLocationRelativeTo(null);
             ventanaOperador.setVisible(true);
 
+            cliente = null;
             dispose();
 
-        } catch (SQLException | RuntimeException e) {
+        } catch (Exception e) {
 
             JOptionPane.showMessageDialog(
                     this,
@@ -129,9 +169,19 @@ public class LoginFrame extends JFrame {
                     JOptionPane.ERROR_MESSAGE
             );
 
-            botonIngresar.setEnabled(true);
             campoContrasena.setText("");
+
+        } finally {
+
+            if (cliente != null) {
+                try {
+                    cliente.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
+            botonIngresar.setEnabled(true);
         }
     }
 }
-
