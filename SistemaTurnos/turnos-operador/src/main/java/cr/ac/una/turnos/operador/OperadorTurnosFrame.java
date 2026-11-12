@@ -4,7 +4,7 @@ import javax.swing.Timer;
 import javax.swing.SwingWorker;
 import cr.ac.una.turnos.common.enums.EstadoTurno;
 import javax.swing.JOptionPane;
-import cr.ac.una.turnos.common.domain.Turno;
+import cr.ac.una.turnos.common.util.JsonUtil;
 import cr.ac.una.turnos.common.dto.TurnoDTO;
 import java.util.Map;
 import java.util.ArrayList;
@@ -179,7 +179,7 @@ private final DefaultTableModel modeloTabla =
     }// </editor-fold>//GEN-END:initComponents
 
     private void botonLlamarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_botonLlamarActionPerformed
-       
+    
     if (turnoActual != null) {
         JOptionPane.showMessageDialog(
                 this,
@@ -191,18 +191,21 @@ private final DefaultTableModel modeloTabla =
     }
 
     try {
-        turnoActual = turnoService.llamarSiguienteTurno(
-                funcionario.getId(),
-                idVentanilla
+        Response respuesta = cliente.enviarSolicitud(
+                TipoMensaje.SOLICITAR_SIGUIENTE_TURNO,
+                null
         );
 
-        if (turnoActual == null) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "No hay turnos pendientes."
-            );
+        if (!respuesta.isExitoso()) {
+            throw new IllegalStateException(respuesta.getMensaje());
+        }
+
+        if (respuesta.getDatos() == null) {
+            JOptionPane.showMessageDialog(this, "No hay turnos pendientes.");
             return;
         }
+
+        turnoActual = convertirTurno(respuesta.getDatos());
 
         etiquetaTurnoActual.setText(
                 "Turno actual: " + turnoActual.getCodigo()
@@ -216,7 +219,7 @@ private final DefaultTableModel modeloTabla =
                 "Se llamó al turno " + turnoActual.getCodigo()
         );
 
-    } catch (RuntimeException e) {
+    } catch (Exception e) {
         JOptionPane.showMessageDialog(
                 this,
                 e.getMessage(),
@@ -227,7 +230,7 @@ private final DefaultTableModel modeloTabla =
     }//GEN-LAST:event_botonLlamarActionPerformed
 
     private void botonIniciarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_botonIniciarActionPerformed
-        
+  
     if (turnoActual == null
             || turnoActual.getEstado() != EstadoTurno.LLAMADO) {
 
@@ -241,21 +244,30 @@ private final DefaultTableModel modeloTabla =
     }
 
     try {
-        turnoService.iniciarAtencionTurno(turnoActual);
+        Response respuesta = cliente.enviarSolicitud(
+                TipoMensaje.INICIAR_ATENCION,
+                Map.of("idTurno", turnoActual.getId())
+        );
+
+        if (!respuesta.isExitoso()) {
+            throw new IllegalStateException(respuesta.getMensaje());
+        }
+
+        turnoActual = convertirTurno(respuesta.getDatos());
 
         etiquetaTurnoActual.setText(
                 "En atención: " + turnoActual.getCodigo()
         );
 
         actualizarEstadoBotones();
+        cargarTurnosPendientes();
 
         JOptionPane.showMessageDialog(
                 this,
-                "Se inició la atención del turno "
-                        + turnoActual.getCodigo()
+                "Se inició la atención del turno " + turnoActual.getCodigo()
         );
 
-    } catch (RuntimeException e) {
+    } catch (Exception e) {
         JOptionPane.showMessageDialog(
                 this,
                 e.getMessage(),
@@ -266,7 +278,7 @@ private final DefaultTableModel modeloTabla =
     }//GEN-LAST:event_botonIniciarActionPerformed
 
     private void botonFinalizarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_botonFinalizarActionPerformed
-       
+    
     if (turnoActual == null
             || turnoActual.getEstado() != EstadoTurno.EN_ATENCION) {
 
@@ -280,12 +292,18 @@ private final DefaultTableModel modeloTabla =
     }
 
     try {
-        turnoService.finalizarAtencionTurno(turnoActual);
+        Response respuesta = cliente.enviarSolicitud(
+                TipoMensaje.FINALIZAR_ATENCION,
+                Map.of("idTurno", turnoActual.getId())
+        );
+
+        if (!respuesta.isExitoso()) {
+            throw new IllegalStateException(respuesta.getMensaje());
+        }
 
         JOptionPane.showMessageDialog(
                 this,
-                "Se finalizó la atención del turno "
-                        + turnoActual.getCodigo()
+                "Se finalizó la atención del turno " + turnoActual.getCodigo()
         );
 
         turnoActual = null;
@@ -295,7 +313,7 @@ private final DefaultTableModel modeloTabla =
         actualizarEstadoBotones();
         cargarTurnosPendientes();
 
-    } catch (RuntimeException e) {
+    } catch (Exception e) {
         JOptionPane.showMessageDialog(
                 this,
                 e.getMessage(),
@@ -333,26 +351,37 @@ private final DefaultTableModel modeloTabla =
     }
 
 private void cargarTurnosPendientes() {
-    modeloTabla.setRowCount(0);
 
     try {
-        for (Turno turno : turnoService.consultarTurnosPendientes()) {
+        Response respuesta = cliente.enviarSolicitud(
+                TipoMensaje.OBTENER_TURNOS_PENDIENTES,
+                null
+        );
+
+        if (!respuesta.isExitoso()) {
+            throw new IllegalStateException(respuesta.getMensaje());
+        }
+
+        List<TurnoDTO> turnos = convertirListaTurnos(respuesta.getDatos());
+
+        modeloTabla.setRowCount(0);
+
+        for (TurnoDTO turno : turnos) {
             modeloTabla.addRow(new Object[]{
                 turno.getCodigo(),
-                turno.getServicio().getNombre(),
+                turno.getNombreServicio(),
                 turno.getPrioridad().name(),
                 turno.getEstado().name()
             });
         }
-    } catch (SQLException e) {
+
+    } catch (Exception e) {
         JOptionPane.showMessageDialog(
                 this,
-                "No se pudieron cargar los turnos:\n"
-                        + e.getMessage(),
-                "Error de base de datos",
+                "No se pudieron cargar los turnos:\n" + e.getMessage(),
+                "Error",
                 JOptionPane.ERROR_MESSAGE
         );
-        e.printStackTrace();
     }
 }
 private void cerrarSesion() {
@@ -422,24 +451,34 @@ private void actualizarTablaAutomaticamente() {
 
     actualizacionEnCurso = true;
 
-    SwingWorker<List<Turno>, Void> worker = new SwingWorker<>() {
+    SwingWorker<List<TurnoDTO>, Void> worker = new SwingWorker<>() {
 
         @Override
-        protected List<Turno> doInBackground() throws Exception {
-            return turnoService.consultarTurnosPendientes();
+        protected List<TurnoDTO> doInBackground() throws Exception {
+
+            Response respuesta = cliente.enviarSolicitud(
+                    TipoMensaje.OBTENER_TURNOS_PENDIENTES,
+                    null
+            );
+
+            if (!respuesta.isExitoso()) {
+                throw new IllegalStateException(respuesta.getMensaje());
+            }
+
+            return convertirListaTurnos(respuesta.getDatos());
         }
 
         @Override
         protected void done() {
             try {
-                List<Turno> turnos = get();
+                List<TurnoDTO> turnos = get();
 
                 modeloTabla.setRowCount(0);
 
-                for (Turno turno : turnos) {
+                for (TurnoDTO turno : turnos) {
                     modeloTabla.addRow(new Object[]{
                         turno.getCodigo(),
-                        turno.getServicio().getNombre(),
+                        turno.getNombreServicio(),
                         turno.getPrioridad().name(),
                         turno.getEstado().name()
                     });
@@ -447,9 +486,9 @@ private void actualizarTablaAutomaticamente() {
 
             } catch (Exception e) {
                 logger.log(
-                    java.util.logging.Level.SEVERE,
-                    "Error al actualizar los turnos",
-                    e
+                        java.util.logging.Level.SEVERE,
+                        "Error al actualizar los turnos",
+                        e
                 );
             } finally {
                 actualizacionEnCurso = false;
@@ -458,6 +497,28 @@ private void actualizarTablaAutomaticamente() {
     };
 
     worker.execute();
+}
+private TurnoDTO convertirTurno(Object datos) {
+
+    return JsonUtil.convertirDesdeJson(
+            JsonUtil.convertirAJson(datos),
+            TurnoDTO.class
+    );
+}
+
+private List<TurnoDTO> convertirListaTurnos(Object datos) {
+
+    List<TurnoDTO> turnos = new ArrayList<>();
+
+    if (!(datos instanceof List<?> lista)) {
+        return turnos;
+    }
+
+    for (Object elemento : lista) {
+        turnos.add(convertirTurno(elemento));
+    }
+
+    return turnos;
 }
 
 private void actualizarEstadoBotones() {
