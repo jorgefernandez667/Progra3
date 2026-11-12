@@ -430,8 +430,13 @@ public class ClientHandler implements Runnable {
     return new TurnoDTO(
         turno.getId(),
         turno.getCodigo(),
-        turno.getServicio().getId(),
-        turno.getServicio().getNombre(),
+        turno.getServicio() == null
+        ? 0
+        : turno.getServicio().getId(),
+
+turno.getServicio() == null
+        ? "Servicio no disponible"
+        : turno.getServicio().getNombre(),
         turno.getPrioridad(),
         turno.getEstado(),
         turno.getFechaGeneracion(),

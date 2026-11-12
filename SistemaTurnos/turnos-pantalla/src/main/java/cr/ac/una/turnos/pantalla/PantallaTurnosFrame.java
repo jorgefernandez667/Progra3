@@ -1,20 +1,22 @@
 
 package cr.ac.una.turnos.pantalla;
 
-import cr.ac.una.turnos.common.domain.Turno;
-import cr.ac.una.turnos.server.service.TurnoService;
+import cr.ac.una.turnos.common.dto.TurnoDTO;
+import cr.ac.una.turnos.common.enums.TipoMensaje;
+import cr.ac.una.turnos.common.network.TcpClient;
+import cr.ac.una.turnos.common.protocol.Response;
+import cr.ac.una.turnos.common.util.JsonUtil;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
-import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -27,7 +29,7 @@ import javax.swing.table.DefaultTableModel;
 
 public class PantallaTurnosFrame extends JFrame {
 
-    private final TurnoService turnoService = new TurnoService();
+    private final TcpClient cliente = new TcpClient();
 
     private final JLabel etiquetaUltimoLlamado =
             new JLabel("Esperando turnos...", SwingConstants.CENTER);
@@ -57,7 +59,6 @@ public class PantallaTurnosFrame extends JFrame {
     private boolean actualizacionEnCurso = false;
 
     public PantallaTurnosFrame() {
-
         configurarVentana();
         inicializarComponentes();
 
@@ -66,7 +67,6 @@ public class PantallaTurnosFrame extends JFrame {
     }
 
     private void configurarVentana() {
-
         setTitle("Sistema de Gestión de Turnos");
         setSize(950, 750);
         setMinimumSize(new Dimension(750, 600));
@@ -82,16 +82,12 @@ public class PantallaTurnosFrame extends JFrame {
                 BorderFactory.createEmptyBorder(20, 25, 20, 25)
         );
 
-        // ENCABEZADO
-
         JLabel titulo = new JLabel(
                 "SISTEMA DE GESTIÓN DE TURNOS",
                 SwingConstants.CENTER
         );
 
         titulo.setFont(new Font("SansSerif", Font.BOLD, 28));
-
-        // ÚLTIMO TURNO LLAMADO
 
         JPanel panelLlamado = new JPanel(new BorderLayout(10, 10));
 
@@ -103,9 +99,7 @@ public class PantallaTurnosFrame extends JFrame {
                 new Font("SansSerif", Font.BOLD, 32)
         );
 
-        etiquetaUltimoLlamado.setForeground(
-                new Color(20, 90, 160)
-        );
+        etiquetaUltimoLlamado.setForeground(new Color(20, 90, 160));
 
         panelLlamado.add(
                 etiquetaUltimoLlamado,
@@ -113,8 +107,6 @@ public class PantallaTurnosFrame extends JFrame {
         );
 
         panelLlamado.setPreferredSize(new Dimension(800, 120));
-
-        // TURNOS EN ATENCIÓN
 
         JLabel tituloAtencion = new JLabel(
                 "TURNOS ACTUALMENTE EN ATENCIÓN"
@@ -131,27 +123,14 @@ public class PantallaTurnosFrame extends JFrame {
         JScrollPane scrollAtencion =
                 new JScrollPane(panelTurnosAtencion);
 
-        scrollAtencion.setPreferredSize(
-                new Dimension(800, 260)
-        );
+        scrollAtencion.setPreferredSize(new Dimension(800, 260));
 
         JPanel panelAtencion = new JPanel(new BorderLayout(5, 10));
 
-        panelAtencion.add(
-                tituloAtencion,
-                BorderLayout.NORTH
-        );
+        panelAtencion.add(tituloAtencion, BorderLayout.NORTH);
+        panelAtencion.add(scrollAtencion, BorderLayout.CENTER);
 
-        panelAtencion.add(
-                scrollAtencion,
-                BorderLayout.CENTER
-        );
-
-        // ÚLTIMOS TURNOS
-
-        JLabel tituloHistorial = new JLabel(
-                "ÚLTIMOS TURNOS"
-        );
+        JLabel tituloHistorial = new JLabel("ÚLTIMOS TURNOS");
 
         tituloHistorial.setFont(
                 new Font("SansSerif", Font.BOLD, 19)
@@ -173,17 +152,8 @@ public class PantallaTurnosFrame extends JFrame {
 
         JPanel panelHistorial = new JPanel(new BorderLayout(5, 10));
 
-        panelHistorial.add(
-                tituloHistorial,
-                BorderLayout.NORTH
-        );
-
-        panelHistorial.add(
-                scrollHistorial,
-                BorderLayout.CENTER
-        );
-
-        // DISTRIBUCIÓN GENERAL
+        panelHistorial.add(tituloHistorial, BorderLayout.NORTH);
+        panelHistorial.add(scrollHistorial, BorderLayout.CENTER);
 
         JPanel panelSuperior = new JPanel(new BorderLayout(10, 10));
 
@@ -195,31 +165,20 @@ public class PantallaTurnosFrame extends JFrame {
         panelCentral.add(panelAtencion, BorderLayout.CENTER);
         panelCentral.add(panelHistorial, BorderLayout.SOUTH);
 
-        panelPrincipal.add(
-                panelSuperior,
-                BorderLayout.NORTH
-        );
-
-        panelPrincipal.add(
-                panelCentral,
-                BorderLayout.CENTER
-        );
+        panelPrincipal.add(panelSuperior, BorderLayout.NORTH);
+        panelPrincipal.add(panelCentral, BorderLayout.CENTER);
 
         etiquetaEstado.setFont(
                 new Font("SansSerif", Font.PLAIN, 12)
         );
 
-        panelPrincipal.add(
-                etiquetaEstado,
-                BorderLayout.SOUTH
-        );
+        panelPrincipal.add(etiquetaEstado, BorderLayout.SOUTH);
 
         setContentPane(panelPrincipal);
     }
 
     private void actualizarPantalla() {
 
-        // Evitar consultas simultáneas.
         if (actualizacionEnCurso) {
             return;
         }
@@ -230,17 +189,32 @@ public class PantallaTurnosFrame extends JFrame {
                 new SwingWorker<>() {
 
             @Override
-            protected DatosPantalla doInBackground()
-                    throws Exception {
+            protected DatosPantalla doInBackground() throws Exception {
 
-                Turno ultimo =
-                        turnoService.consultarUltimoTurnoLlamado();
+                Response respuesta = cliente.enviarSolicitud(
+                        TipoMensaje.ACTUALIZAR_PANTALLA,
+                        null
+                );
 
-                List<Turno> enAtencion =
-                        turnoService.consultarTurnosEnAtencion();
+                if (!respuesta.isExitoso()) {
+                    throw new IllegalStateException(
+                            respuesta.getMensaje()
+                    );
+                }
 
-                List<Turno> recientes =
-                        turnoService.consultarUltimosTurnosLlamados();
+                Map<?, ?> datos = (Map<?, ?>) respuesta.getDatos();
+
+                TurnoDTO ultimo = convertirTurno(
+                        datos.get("ultimoLlamado")
+                );
+
+                List<TurnoDTO> enAtencion = convertirListaTurnos(
+                        datos.get("enAtencion")
+                );
+
+                List<TurnoDTO> recientes = convertirListaTurnos(
+                        datos.get("recientes")
+                );
 
                 return new DatosPantalla(
                         ultimo,
@@ -284,7 +258,46 @@ public class PantallaTurnosFrame extends JFrame {
         trabajador.execute();
     }
 
-    private void mostrarUltimoLlamado(Turno turno) {
+    private TurnoDTO convertirTurno(Object datos) {
+
+        if (datos == null) {
+            return null;
+        }
+
+        return JsonUtil.convertirDesdeJson(
+                JsonUtil.convertirAJson(datos),
+                TurnoDTO.class
+        );
+    }
+
+    private List<TurnoDTO> convertirListaTurnos(Object datos) {
+
+        List<TurnoDTO> turnos = new ArrayList<>();
+
+        if (!(datos instanceof List<?> lista)) {
+            return turnos;
+        }
+
+        for (Object elemento : lista) {
+
+            TurnoDTO turno = convertirTurno(elemento);
+
+            if (turno != null) {
+                turnos.add(turno);
+            }
+        }
+
+        return turnos;
+    }
+
+    private String obtenerVentanilla(TurnoDTO turno) {
+
+        return turno.getIdVentanilla() <= 0
+                ? "---"
+                : String.valueOf(turno.getIdVentanilla());
+    }
+
+    private void mostrarUltimoLlamado(TurnoDTO turno) {
 
         if (turno == null) {
 
@@ -295,18 +308,14 @@ public class PantallaTurnosFrame extends JFrame {
             return;
         }
 
-        String ventanilla = turno.getIdVentanilla() == null
-                ? "---"
-                : turno.getIdVentanilla().toString();
-
         etiquetaUltimoLlamado.setText(
                 turno.getCodigo()
                 + "     →     VENTANILLA "
-                + ventanilla
+                + obtenerVentanilla(turno)
         );
     }
 
-    private void mostrarTurnosEnAtencion(List<Turno> turnos) {
+    private void mostrarTurnosEnAtencion(List<TurnoDTO> turnos) {
 
         panelTurnosAtencion.removeAll();
 
@@ -325,12 +334,7 @@ public class PantallaTurnosFrame extends JFrame {
 
         } else {
 
-            for (Turno turno : turnos) {
-
-                String ventanilla =
-                        turno.getIdVentanilla() == null
-                        ? "---"
-                        : turno.getIdVentanilla().toString();
+            for (TurnoDTO turno : turnos) {
 
                 JPanel tarjeta = new JPanel(new BorderLayout(5, 8));
 
@@ -345,9 +349,7 @@ public class PantallaTurnosFrame extends JFrame {
                         )
                 );
 
-                tarjeta.setBackground(
-                        new Color(235, 245, 255)
-                );
+                tarjeta.setBackground(new Color(235, 245, 255));
 
                 JLabel codigo = new JLabel(
                         turno.getCodigo(),
@@ -359,7 +361,7 @@ public class PantallaTurnosFrame extends JFrame {
                 );
 
                 JLabel numeroVentanilla = new JLabel(
-                        "Ventanilla " + ventanilla,
+                        "Ventanilla " + obtenerVentanilla(turno),
                         SwingConstants.CENTER
                 );
 
@@ -378,35 +380,30 @@ public class PantallaTurnosFrame extends JFrame {
         panelTurnosAtencion.repaint();
     }
 
-    private void mostrarHistorial(List<Turno> turnos) {
+    private void mostrarHistorial(List<TurnoDTO> turnos) {
 
         modeloTabla.setRowCount(0);
 
-        for (Turno turno : turnos) {
-
-            String ventanilla =
-                    turno.getIdVentanilla() == null
-                    ? "---"
-                    : turno.getIdVentanilla().toString();
+        for (TurnoDTO turno : turnos) {
 
             modeloTabla.addRow(new Object[]{
                 turno.getCodigo(),
                 turno.getEstado(),
-                ventanilla
+                obtenerVentanilla(turno)
             });
         }
     }
 
     private static class DatosPantalla {
 
-        private final Turno ultimoLlamado;
-        private final List<Turno> enAtencion;
-        private final List<Turno> recientes;
+        private final TurnoDTO ultimoLlamado;
+        private final List<TurnoDTO> enAtencion;
+        private final List<TurnoDTO> recientes;
 
         public DatosPantalla(
-                Turno ultimoLlamado,
-                List<Turno> enAtencion,
-                List<Turno> recientes) {
+                TurnoDTO ultimoLlamado,
+                List<TurnoDTO> enAtencion,
+                List<TurnoDTO> recientes) {
 
             this.ultimoLlamado = ultimoLlamado;
             this.enAtencion = enAtencion;
@@ -416,7 +413,6 @@ public class PantallaTurnosFrame extends JFrame {
 
     @Override
     public void dispose() {
-
         temporizador.stop();
         super.dispose();
     }
@@ -428,3 +424,4 @@ public class PantallaTurnosFrame extends JFrame {
         );
     }
 }
+
