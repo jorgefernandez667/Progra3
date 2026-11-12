@@ -138,6 +138,9 @@ public class ClientHandler implements Runnable {
     
     case OBTENER_TURNOS_PENDIENTES:
     return obtenerTurnosPendientes(request);
+    
+    case ACTUALIZAR_PANTALLA:
+    return actualizarPantalla(request);
 
 
     default:
@@ -664,6 +667,46 @@ private Response obtenerTurnosPendientes(Request request)
         turnosDTO
     );
 }
+private Response actualizarPantalla(Request request)
+        throws SQLException {
 
+    Turno ultimoLlamado =
+            turnoService.consultarUltimoTurnoLlamado();
+
+    List<Turno> enAtencion =
+            turnoService.consultarTurnosEnAtencion();
+
+    List<Turno> recientes =
+            turnoService.consultarUltimosTurnosLlamados();
+
+    Map<String, Object> datos = new LinkedHashMap<>();
+
+    datos.put(
+            "ultimoLlamado",
+            ultimoLlamado == null ? null : convertirTurno(ultimoLlamado)
+    );
+
+    datos.put(
+            "enAtencion",
+            enAtencion.stream()
+                    .map(this::convertirTurno)
+                    .toList()
+    );
+
+    datos.put(
+            "recientes",
+            recientes.stream()
+                    .map(this::convertirTurno)
+                    .toList()
+    );
+
+    return new Response(
+            request.getIdSolicitud(),
+            TipoMensaje.ACTUALIZAR_PANTALLA,
+            true,
+            "Información de pantalla obtenida correctamente.",
+            datos
+    );
+}
 }
 
