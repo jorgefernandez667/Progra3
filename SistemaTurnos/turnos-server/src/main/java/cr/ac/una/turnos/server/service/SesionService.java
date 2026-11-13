@@ -1,6 +1,8 @@
+
 package cr.ac.una.turnos.server.service;
 
 import cr.ac.una.turnos.common.domain.Funcionario;
+import cr.ac.una.turnos.common.enums.TipoUsuario;
 import cr.ac.una.turnos.server.dao.UsuarioDAO;
 import cr.ac.una.turnos.server.dao.VentanillaDAO;
 
@@ -36,13 +38,16 @@ public class SesionService {
 
         if (funcionario == null) {
             throw new IllegalArgumentException(
-                    "Usuario o contraseña incorrectos, "
-                    + "o el usuario no tiene permisos de operador."
+                    "Usuario o contraseña incorrectos."
             );
         }
 
-        int idVentanilla =
-                ventanillaDAO.asignarVentanilla(funcionario.getId());
+        Integer idVentanilla = null;
+
+        if (funcionario.getUsuario().getTipo() == TipoUsuario.OPERADOR) {
+            idVentanilla =
+                    ventanillaDAO.asignarVentanilla(funcionario.getId());
+        }
 
         funcionarioActual = funcionario;
         idVentanillaActual = idVentanilla;
@@ -50,16 +55,18 @@ public class SesionService {
 
     public synchronized void cerrarSesion() throws SQLException {
 
-        if (funcionarioActual == null || idVentanillaActual == null) {
+        if (funcionarioActual == null) {
             throw new IllegalStateException(
                     "No hay una sesión activa."
             );
         }
 
-        ventanillaDAO.liberarVentanilla(
-                idVentanillaActual,
-                funcionarioActual.getId()
-        );
+        if (idVentanillaActual != null) {
+            ventanillaDAO.liberarVentanilla(
+                    idVentanillaActual,
+                    funcionarioActual.getId()
+            );
+        }
 
         funcionarioActual = null;
         idVentanillaActual = null;

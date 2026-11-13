@@ -23,7 +23,7 @@ public class UsuarioDAO {
                    u.contrasena, u.rol,
                    f.id_funcionario, f.nombre_completo
             FROM usuario u
-            INNER JOIN funcionario f
+            LEFT JOIN funcionario f
                 ON u.id_usuario = f.id_usuario
             WHERE u.nombre_usuario = ?
             """;
@@ -45,19 +45,33 @@ public class UsuarioDAO {
                     return null;
                 }
 
+                TipoUsuario tipo = TipoUsuario.valueOf(
+                        rs.getString("rol")
+                );
+
                 Usuario usuario = new Usuario(
                         rs.getInt("id_usuario"),
                         rs.getString("nombre_usuario"),
-                        TipoUsuario.valueOf(rs.getString("rol")),
+                        tipo,
                         true
                 );
 
-                if (usuario.getTipo() != TipoUsuario.OPERADOR) {
-                    return null;
+                int idFuncionario = rs.getInt("id_funcionario");
+
+                if (rs.wasNull()) {
+                    if (tipo == TipoUsuario.OPERADOR) {
+                        return null;
+                    }
+
+                    return new Funcionario(
+                            0,
+                            usuario,
+                            rs.getString("nombre_usuario")
+                    );
                 }
 
                 return new Funcionario(
-                        rs.getInt("id_funcionario"),
+                        idFuncionario,
                         usuario,
                         rs.getString("nombre_completo")
                 );
@@ -65,4 +79,5 @@ public class UsuarioDAO {
         }
     }
 }
+
 

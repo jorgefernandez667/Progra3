@@ -41,7 +41,6 @@ public class LoginFrame extends JFrame {
         botonIngresar = new JButton("Iniciar sesión");
 
         JPanel panelCampos = new JPanel(new GridLayout(2, 2, 10, 10));
-
         panelCampos.add(new JLabel("Usuario:"));
         panelCampos.add(campoUsuario);
         panelCampos.add(new JLabel("Contraseña:"));
@@ -65,10 +64,7 @@ public class LoginFrame extends JFrame {
     private void iniciarSesion() {
 
         String usuario = campoUsuario.getText().trim();
-
-        String contrasena = new String(
-                campoContrasena.getPassword()
-        );
+        String contrasena = new String(campoContrasena.getPassword());
 
         if (usuario.isEmpty() || contrasena.isBlank()) {
             JOptionPane.showMessageDialog(
@@ -81,49 +77,30 @@ public class LoginFrame extends JFrame {
         }
 
         botonIngresar.setEnabled(false);
-
         TcpSessionClient cliente = null;
 
         try {
-
             cliente = new TcpSessionClient();
-
-            Map<String, Object> datos = Map.of(
-                    "nombreUsuario", usuario,
-                    "contrasena", contrasena
-            );
 
             Response respuesta = cliente.enviarSolicitud(
                     TipoMensaje.LOGIN,
-                    datos
+                    Map.of(
+                            "nombreUsuario", usuario,
+                            "contrasena", contrasena
+                    )
             );
 
             if (!respuesta.isExitoso()) {
-                throw new IllegalStateException(
-                        respuesta.getMensaje()
-                );
+                throw new IllegalStateException(respuesta.getMensaje());
             }
 
-            Map<?, ?> datosRespuesta =
-                    (Map<?, ?>) respuesta.getDatos();
+            Map<?, ?> datos = (Map<?, ?>) respuesta.getDatos();
 
-            int idFuncionario = ((Number)
-                    datosRespuesta.get("idFuncionario")).intValue();
-
-            int idUsuario = ((Number)
-                    datosRespuesta.get("idUsuario")).intValue();
-
-            int idVentanilla = ((Number)
-                    datosRespuesta.get("idVentanilla")).intValue();
-
-            String nombreCompleto =
-                    datosRespuesta.get("nombreCompleto").toString();
-
-            String nombreUsuario =
-                    datosRespuesta.get("nombreUsuario").toString();
+            int idUsuario = ((Number) datos.get("idUsuario")).intValue();
+            String nombreUsuario = datos.get("nombreUsuario").toString();
 
             TipoUsuario tipo = TipoUsuario.valueOf(
-                    datosRespuesta.get("tipo").toString()
+                    datos.get("tipo").toString()
             );
 
             Usuario usuarioActual = new Usuario(
@@ -133,29 +110,52 @@ public class LoginFrame extends JFrame {
                     true
             );
 
+            String nombreCompleto = datos.get("nombreCompleto").toString();
+
             Funcionario funcionario = new Funcionario(
-                    idFuncionario,
+                    datos.get("idFuncionario") == null
+                            ? 0
+                            : ((Number) datos.get("idFuncionario")).intValue(),
                     usuarioActual,
                     nombreCompleto
             );
 
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Bienvenido, " + funcionario.getNombreCompleto()
-                    + "\nVentanilla asignada: " + idVentanilla,
-                    "Inicio de sesión exitoso",
-                    JOptionPane.INFORMATION_MESSAGE
-            );
+            if (tipo == TipoUsuario.OPERADOR) {
 
-            OperadorTurnosFrame ventanaOperador =
-                    new OperadorTurnosFrame(
-                            cliente,
-                            funcionario,
-                            idVentanilla
+                if (datos.get("idVentanilla") == null) {
+                    throw new IllegalStateException(
+                            "No se asignó una ventanilla al operador."
                     );
+                }
 
-            ventanaOperador.setLocationRelativeTo(null);
-            ventanaOperador.setVisible(true);
+                int idVentanilla =
+                        ((Number) datos.get("idVentanilla")).intValue();
+
+                OperadorTurnosFrame ventana = new OperadorTurnosFrame(
+                        cliente,
+                        funcionario,
+                        idVentanilla
+                );
+
+                ventana.setLocationRelativeTo(null);
+                ventana.setVisible(true);
+
+            } else if (tipo == TipoUsuario.ADMINISTRADOR) {
+
+                AdminFrame ventana = new AdminFrame(
+                        cliente,
+                        usuarioActual,
+                        nombreCompleto
+                );
+
+                ventana.setLocationRelativeTo(null);
+                ventana.setVisible(true);
+
+            } else {
+                throw new IllegalStateException(
+                        "Tipo de usuario no reconocido."
+                );
+            }
 
             cliente = null;
             dispose();

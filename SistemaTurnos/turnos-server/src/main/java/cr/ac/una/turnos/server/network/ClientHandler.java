@@ -171,85 +171,62 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    private Response iniciarSesion(Request request)
-            throws SQLException {
+    
+private Response iniciarSesion(Request request)
+        throws SQLException {
 
-        if (sesionService.haySesionActiva()) {
-            throw new IllegalStateException(
-                "Ya existe una sesión activa en esta conexión."
-            );
-        }
-
-        if (request.getDatos() == null) {
-            throw new IllegalArgumentException(
-                "Faltan los datos de inicio de sesión."
-            );
-        }
-
-        Map<String, Object> datos = mapper.convertValue(
-            request.getDatos(),
-            new TypeReference<Map<String, Object>>() {}
-        );
-
-        String nombreUsuario = obtenerTexto(
-            datos.get("nombreUsuario")
-        );
-
-        String contrasena = obtenerTexto(
-            datos.get("contrasena")
-        );
-
-        sesionService.iniciarSesion(
-            nombreUsuario,
-            contrasena
-        );
-
-        Funcionario funcionario =
-            sesionService.getFuncionarioActual();
-
-        Integer idVentanilla =
-            sesionService.getIdVentanillaActual();
-
-        Map<String, Object> datosRespuesta = new LinkedHashMap<>();
-
-        datosRespuesta.put(
-            "idFuncionario",
-            funcionario.getId()
-        );
-
-        datosRespuesta.put(
-            "nombreCompleto",
-            funcionario.getNombreCompleto()
-        );
-
-        datosRespuesta.put(
-            "idUsuario",
-            funcionario.getUsuario().getId()
-        );
-
-        datosRespuesta.put(
-            "nombreUsuario",
-            funcionario.getUsuario().getNombreUsuario()
-        );
-
-        datosRespuesta.put(
-            "tipo",
-            funcionario.getUsuario().getTipo()
-        );
-
-        datosRespuesta.put(
-            "idVentanilla",
-            idVentanilla
-        );
-
-        return new Response(
-            request.getIdSolicitud(),
-            TipoMensaje.LOGIN,
-            true,
-            "Inicio de sesión exitoso.",
-            datosRespuesta
+    if (sesionService.haySesionActiva()) {
+        throw new IllegalStateException(
+            "Ya existe una sesión activa en esta conexión."
         );
     }
+
+    if (request.getDatos() == null) {
+        throw new IllegalArgumentException(
+            "Faltan los datos de inicio de sesión."
+        );
+    }
+
+    Map<String, Object> datos = mapper.convertValue(
+        request.getDatos(),
+        new TypeReference<Map<String, Object>>() {}
+    );
+
+    String nombreUsuario = obtenerTexto(
+        datos.get("nombreUsuario")
+    );
+
+    String contrasena = obtenerTexto(
+        datos.get("contrasena")
+    );
+
+    sesionService.iniciarSesion(nombreUsuario, contrasena);
+
+    Funcionario funcionario =
+        sesionService.getFuncionarioActual();
+
+    Integer idVentanilla =
+        sesionService.getIdVentanillaActual();
+
+    Map<String, Object> datosRespuesta = new LinkedHashMap<>();
+
+    datosRespuesta.put("idFuncionario", funcionario.getId());
+    datosRespuesta.put("nombreCompleto", funcionario.getNombreCompleto());
+    datosRespuesta.put("idUsuario", funcionario.getUsuario().getId());
+    datosRespuesta.put("nombreUsuario",
+            funcionario.getUsuario().getNombreUsuario());
+    datosRespuesta.put("tipo", funcionario.getUsuario().getTipo());
+    datosRespuesta.put("idVentanilla", idVentanilla);
+
+    return new Response(
+        request.getIdSolicitud(),
+        TipoMensaje.LOGIN,
+        true,
+        "Inicio de sesión exitoso.",
+        datosRespuesta
+    );
+}
+
 
     private Response cerrarSesion(Request request)
             throws SQLException {
