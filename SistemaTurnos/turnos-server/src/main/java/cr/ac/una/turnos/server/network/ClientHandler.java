@@ -91,9 +91,16 @@ private final UsuarioDAO usuarioDAO = new UsuarioDAO();
 
         } catch (IOException e) {
 
-            System.out.println(
-                "Conexión cerrada con " + direccion
-            );
+    System.err.println(
+        "Error de comunicación con el cliente " + direccion
+    );
+
+    System.err.println(
+        "Causa: " + e.getClass().getSimpleName()
+        + " - " + e.getMessage()
+    );
+
+    e.printStackTrace();
 
         } finally {
 
