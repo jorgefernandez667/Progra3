@@ -158,6 +158,9 @@ private final UsuarioDAO usuarioDAO = new UsuarioDAO();
         
     case OBTENER_USUARIOS:
         return obtenerUsuarios(request);
+        
+    case CREAR_USUARIO:
+        return crearUsuario(request);
 
 
     default:
@@ -811,6 +814,40 @@ private Response obtenerUsuarios(Request request)
             true,
             "Usuarios obtenidos correctamente.",
             usuarios
+    );
+}
+private Response crearUsuario(Request request)
+        throws SQLException {
+
+    validarAdministrador();
+
+    if (request.getDatos() == null) {
+        throw new IllegalArgumentException(
+                "Faltan los datos del operador."
+        );
+    }
+
+    Map<String, Object> datos = mapper.convertValue(
+            request.getDatos(),
+            new TypeReference<Map<String, Object>>() {}
+    );
+
+    String nombreUsuario = obtenerTexto(datos.get("nombreUsuario"));
+    String contrasena = obtenerTexto(datos.get("contrasena"));
+    String nombreCompleto = obtenerTexto(datos.get("nombreCompleto"));
+
+    usuarioDAO.crearOperador(
+            nombreUsuario,
+            contrasena,
+            nombreCompleto
+    );
+
+    return new Response(
+            request.getIdSolicitud(),
+            TipoMensaje.CREAR_USUARIO,
+            true,
+            "Operador creado correctamente.",
+            null
     );
 }
 }

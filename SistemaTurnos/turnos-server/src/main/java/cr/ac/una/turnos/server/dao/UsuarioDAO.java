@@ -122,6 +122,99 @@ public class UsuarioDAO {
 
     return usuarios;
 }
+    public void crearOperador(
+        String nombreUsuario,
+        String contrasena,
+        String nombreCompleto) throws SQLException {
+
+    if (nombreUsuario == null || nombreUsuario.isBlank()
+            || contrasena == null || contrasena.isBlank()
+            || nombreCompleto == null || nombreCompleto.isBlank()) {
+        throw new IllegalArgumentException(
+                "Todos los campos son obligatorios."
+        );
+    }
+
+    nombreUsuario = nombreUsuario.trim();
+    nombreCompleto = nombreCompleto.trim();
+
+    if (nombreUsuario.length() > 50) {
+        throw new IllegalArgumentException(
+                "El nombre de usuario no puede superar 50 caracteres."
+        );
+    }
+
+    if (nombreCompleto.length() > 100) {
+        throw new IllegalArgumentException(
+                "El nombre completo no puede superar 100 caracteres."
+        );
+    }
+
+    if (contrasena.length() < 8) {
+        throw new IllegalArgumentException(
+                "La contraseña debe tener al menos 8 caracteres."
+        );
+    }
+
+    String hash = PasswordUtil.hash(contrasena);
+
+    String sqlUsuario = """
+        INSERT INTO usuario (nombre_usuario, contrasena, rol)
+        VALUES (?, ?, 'OPERADOR')
+        """;
+
+    String sqlFuncionario = """
+        INSERT INTO funcionario (id_usuario, nombre_completo)
+        VALUES (?, ?)
+        """;
+
+    try (Connection conexion = DatabaseConfig.obtenerConexion()) {
+
+        conexion.setAutoCommit(false);
+
+        try {
+            int idUsuario;
+
+            try (PreparedStatement ps = conexion.prepareStatement(
+                    sqlUsuario,
+                    java.sql.Statement.RETURN_GENERATED_KEYS)) {
+
+                ps.setString(1, nombreUsuario);
+                ps.setString(2, hash);
+
+                ps.executeUpdate();
+
+                try (ResultSet rs = ps.getGeneratedKeys()) {
+                    if (!rs.next()) {
+                        throw new SQLException(
+                                "No se pudo obtener el ID del usuario."
+                        );
+                    }
+
+                    idUsuario = rs.getInt(1);
+                }
+            }
+
+            try (PreparedStatement ps = conexion.prepareStatement(
+                    sqlFuncionario)) {
+
+                ps.setInt(1, idUsuario);
+                ps.setString(2, nombreCompleto);
+                ps.executeUpdate();
+            }
+
+            conexion.commit();
+
+        } catch (SQLException | RuntimeException e) {
+
+            conexion.rollback();
+            throw e;
+
+        } finally {
+            conexion.setAutoCommit(true);
+        }
+    }
+}
 }
 
 
