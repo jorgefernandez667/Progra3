@@ -6,7 +6,9 @@ import cr.ac.una.turnos.common.domain.Funcionario;
 import cr.ac.una.turnos.common.enums.TipoUsuario;
 import cr.ac.una.turnos.server.config.DatabaseConfig;
 import cr.ac.una.turnos.server.security.PasswordUtil;
-
+import cr.ac.una.turnos.common.dto.UsuarioDTO;
+import java.util.ArrayList;
+import java.util.List;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -78,6 +80,48 @@ public class UsuarioDAO {
             }
         }
     }
+    public List<UsuarioDTO> obtenerTodos() throws SQLException {
+
+    String sql = """
+        SELECT
+            u.id_usuario,
+            u.nombre_usuario,
+            u.rol,
+            f.id_funcionario,
+            f.nombre_completo
+        FROM usuario u
+        LEFT JOIN funcionario f
+            ON u.id_usuario = f.id_usuario
+        ORDER BY u.id_usuario
+        """;
+
+    List<UsuarioDTO> usuarios = new ArrayList<>();
+
+    try (Connection conexion = DatabaseConfig.obtenerConexion();
+         PreparedStatement ps = conexion.prepareStatement(sql);
+         ResultSet rs = ps.executeQuery()) {
+
+        while (rs.next()) {
+
+            int idFuncionario = rs.getInt("id_funcionario");
+
+            Integer funcionario = rs.wasNull()
+                    ? null
+                    : idFuncionario;
+
+            usuarios.add(new UsuarioDTO(
+                    rs.getInt("id_usuario"),
+                    rs.getString("nombre_usuario"),
+                    TipoUsuario.valueOf(rs.getString("rol")),
+                    true,
+                    funcionario,
+                    rs.getString("nombre_completo")
+            ));
+        }
+    }
+
+    return usuarios;
+}
 }
 
 

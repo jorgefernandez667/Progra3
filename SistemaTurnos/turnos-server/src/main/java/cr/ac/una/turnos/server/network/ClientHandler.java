@@ -30,6 +30,8 @@ import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import cr.ac.una.turnos.server.service.TurnoService;
+import cr.ac.una.turnos.common.dto.UsuarioDTO;
+import cr.ac.una.turnos.server.dao.UsuarioDAO;
 
 
 public class ClientHandler implements Runnable {
@@ -37,6 +39,7 @@ public class ClientHandler implements Runnable {
     private final Socket socket;
     private final ObjectMapper mapper;
 private final VentanillaDAO ventanillaDAO = new VentanillaDAO();
+private final UsuarioDAO usuarioDAO = new UsuarioDAO();
     // Cada conexión TCP tiene su propia sesión.
     private final SesionService sesionService = new SesionService();
     
@@ -152,6 +155,9 @@ private final VentanillaDAO ventanillaDAO = new VentanillaDAO();
 
     case CAMBIAR_ESTADO_VENTANILLA:
         return cambiarEstadoVentanilla(request);
+        
+    case OBTENER_USUARIOS:
+        return obtenerUsuarios(request);
 
 
     default:
@@ -790,6 +796,21 @@ private Response cambiarEstadoVentanilla(Request request)
         true,
         "Estado de la ventanilla actualizado correctamente.",
         null
+    );
+}
+private Response obtenerUsuarios(Request request)
+        throws SQLException {
+
+    validarAdministrador();
+
+    List<UsuarioDTO> usuarios = usuarioDAO.obtenerTodos();
+
+    return new Response(
+            request.getIdSolicitud(),
+            TipoMensaje.OBTENER_USUARIOS,
+            true,
+            "Usuarios obtenidos correctamente.",
+            usuarios
     );
 }
 }
