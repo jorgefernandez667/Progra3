@@ -20,10 +20,15 @@ public class AdminFrame extends JFrame {
     private final Usuario usuario;
     private final String nombreCompleto;
 
-    private final DefaultTableModel modelo;
-    private final JTable tabla;
-    private final JButton botonActualizar;
+    private final DefaultTableModel modeloVentanillas;
+    private final DefaultTableModel modeloUsuarios;
+
+    private final JTable tablaVentanillas;
+    private final JTable tablaUsuarios;
+
+    private final JButton botonActualizarVentanillas;
     private final JButton botonCambiarEstado;
+    private final JButton botonActualizarUsuarios;
 
     public AdminFrame(
             TcpSessionClient cliente,
@@ -35,7 +40,7 @@ public class AdminFrame extends JFrame {
         this.nombreCompleto = nombreCompleto;
 
         setTitle("Administración - Sistema de Turnos");
-        setSize(750, 500);
+        setSize(850, 550);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 
@@ -58,52 +63,110 @@ public class AdminFrame extends JFrame {
         panelSuperior.add(titulo, BorderLayout.NORTH);
         panelSuperior.add(bienvenida, BorderLayout.SOUTH);
 
-        modelo = new DefaultTableModel(
+        modeloVentanillas = new DefaultTableModel(
                 new Object[]{"ID", "Ventanilla", "Estado"}, 0) {
-
             @Override
             public boolean isCellEditable(int fila, int columna) {
                 return false;
             }
         };
 
-        tabla = new JTable(modelo);
-        tabla.setSelectionMode(
+        tablaVentanillas = new JTable(modeloVentanillas);
+        tablaVentanillas.setSelectionMode(
                 ListSelectionModel.SINGLE_SELECTION
         );
-        tabla.setRowHeight(25);
 
-        JScrollPane scroll = new JScrollPane(tabla);
+        modeloUsuarios = new DefaultTableModel(
+                new Object[]{
+                    "ID", "Usuario", "Rol",
+                    "Funcionario", "Nombre completo"
+                }, 0) {
+            @Override
+            public boolean isCellEditable(int fila, int columna) {
+                return false;
+            }
+        };
 
-        JLabel subtitulo = new JLabel(
-                "Administración de ventanillas"
+        tablaUsuarios = new JTable(modeloUsuarios);
+        tablaUsuarios.setSelectionMode(
+                ListSelectionModel.SINGLE_SELECTION
         );
-        subtitulo.setFont(new Font("Segoe UI", Font.BOLD, 16));
 
-        JPanel panelTabla = new JPanel(new BorderLayout(10, 10));
-        panelTabla.setBorder(
-                BorderFactory.createEmptyBorder(10, 20, 10, 20)
+        JTabbedPane pestañas = new JTabbedPane();
+
+        JPanel panelVentanillas = new JPanel(new BorderLayout(10, 10));
+        panelVentanillas.setBorder(
+                BorderFactory.createEmptyBorder(15, 15, 15, 15)
         );
-        panelTabla.add(subtitulo, BorderLayout.NORTH);
-        panelTabla.add(scroll, BorderLayout.CENTER);
 
-        botonActualizar = new JButton("Actualizar");
+        panelVentanillas.add(
+                new JScrollPane(tablaVentanillas),
+                BorderLayout.CENTER
+        );
+
+        botonActualizarVentanillas = new JButton("Actualizar");
         botonCambiarEstado = new JButton("Cambiar estado");
+
+        JPanel botonesVentanillas = new JPanel(new FlowLayout());
+        botonesVentanillas.add(botonActualizarVentanillas);
+        botonesVentanillas.add(botonCambiarEstado);
+
+        panelVentanillas.add(
+                botonesVentanillas,
+                BorderLayout.SOUTH
+        );
+
+        JPanel panelUsuarios = new JPanel(new BorderLayout(10, 10));
+        panelUsuarios.setBorder(
+                BorderFactory.createEmptyBorder(15, 15, 15, 15)
+        );
+
+        panelUsuarios.add(
+                new JScrollPane(tablaUsuarios),
+                BorderLayout.CENTER
+        );
+
+        botonActualizarUsuarios = new JButton("Actualizar usuarios");
+
+        JPanel botonesUsuarios = new JPanel(new FlowLayout());
+        botonesUsuarios.add(botonActualizarUsuarios);
+
+        panelUsuarios.add(botonesUsuarios, BorderLayout.SOUTH);
+
+        pestañas.addTab("Ventanillas", panelVentanillas);
+        pestañas.addTab("Usuarios", panelUsuarios);
+
         JButton botonCerrarSesion = new JButton("Cerrar sesión");
 
-        JPanel panelBotones = new JPanel(new FlowLayout());
-        panelBotones.add(botonActualizar);
-        panelBotones.add(botonCambiarEstado);
-        panelBotones.add(botonCerrarSesion);
+        JPanel panelInferior = new JPanel(new FlowLayout());
+        panelInferior.add(botonCerrarSesion);
 
         setLayout(new BorderLayout());
         add(panelSuperior, BorderLayout.NORTH);
-        add(panelTabla, BorderLayout.CENTER);
-        add(panelBotones, BorderLayout.SOUTH);
+        add(pestañas, BorderLayout.CENTER);
+        add(panelInferior, BorderLayout.SOUTH);
 
-        botonActualizar.addActionListener(e -> cargarVentanillas());
-        botonCambiarEstado.addActionListener(e -> cambiarEstado());
-        botonCerrarSesion.addActionListener(e -> cerrarSesion());
+        botonActualizarVentanillas.addActionListener(
+                e -> cargarVentanillas()
+        );
+
+        botonCambiarEstado.addActionListener(
+                e -> cambiarEstado()
+        );
+
+        botonActualizarUsuarios.addActionListener(
+                e -> cargarUsuarios()
+        );
+
+        botonCerrarSesion.addActionListener(
+                e -> cerrarSesion()
+        );
+
+        pestañas.addChangeListener(e -> {
+            if (pestañas.getSelectedIndex() == 1) {
+                cargarUsuarios();
+            }
+        });
 
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
@@ -117,7 +180,7 @@ public class AdminFrame extends JFrame {
 
     private void cargarVentanillas() {
 
-        botonActualizar.setEnabled(false);
+        botonActualizarVentanillas.setEnabled(false);
         botonCambiarEstado.setEnabled(false);
 
         try {
@@ -130,7 +193,7 @@ public class AdminFrame extends JFrame {
                 throw new IllegalStateException(respuesta.getMensaje());
             }
 
-            modelo.setRowCount(0);
+            modeloVentanillas.setRowCount(0);
 
             List<?> ventanillas = (List<?>) respuesta.getDatos();
 
@@ -139,7 +202,7 @@ public class AdminFrame extends JFrame {
 
                     Map<?, ?> datos = (Map<?, ?>) elemento;
 
-                    modelo.addRow(new Object[]{
+                    modeloVentanillas.addRow(new Object[]{
                         datos.get("id"),
                         datos.get("nombre"),
                         datos.get("estado")
@@ -148,24 +211,60 @@ public class AdminFrame extends JFrame {
             }
 
         } catch (Exception e) {
+            mostrarError("No fue posible consultar las ventanillas.", e);
+        } finally {
+            botonActualizarVentanillas.setEnabled(true);
+            botonCambiarEstado.setEnabled(true);
+        }
+    }
 
-            JOptionPane.showMessageDialog(
-                    this,
-                    "No fue posible consultar las ventanillas:\n"
-                    + e.getMessage(),
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE
+    private void cargarUsuarios() {
+
+        botonActualizarUsuarios.setEnabled(false);
+
+        try {
+            Response respuesta = cliente.enviarSolicitud(
+                    TipoMensaje.OBTENER_USUARIOS,
+                    null
             );
 
+            if (!respuesta.isExitoso()) {
+                throw new IllegalStateException(respuesta.getMensaje());
+            }
+
+            modeloUsuarios.setRowCount(0);
+
+            List<?> usuarios = (List<?>) respuesta.getDatos();
+
+            if (usuarios != null) {
+                for (Object elemento : usuarios) {
+
+                    Map<?, ?> datos = (Map<?, ?>) elemento;
+
+                    modeloUsuarios.addRow(new Object[]{
+                        datos.get("id"),
+                        datos.get("nombreUsuario"),
+                        datos.get("rol"),
+                        datos.get("idFuncionario") == null
+                                ? "No aplica"
+                                : datos.get("idFuncionario"),
+                        datos.get("nombreCompleto") == null
+                                ? "Sin funcionario"
+                                : datos.get("nombreCompleto")
+                    });
+                }
+            }
+
+        } catch (Exception e) {
+            mostrarError("No fue posible consultar los usuarios.", e);
         } finally {
-            botonActualizar.setEnabled(true);
-            botonCambiarEstado.setEnabled(true);
+            botonActualizarUsuarios.setEnabled(true);
         }
     }
 
     private void cambiarEstado() {
 
-        int fila = tabla.getSelectedRow();
+        int fila = tablaVentanillas.getSelectedRow();
 
         if (fila < 0) {
             JOptionPane.showMessageDialog(
@@ -178,10 +277,11 @@ public class AdminFrame extends JFrame {
         }
 
         int idVentanilla = Integer.parseInt(
-                modelo.getValueAt(fila, 0).toString()
+                modeloVentanillas.getValueAt(fila, 0).toString()
         );
 
-        String estadoActual = modelo.getValueAt(fila, 2).toString();
+        String estadoActual =
+                modeloVentanillas.getValueAt(fila, 2).toString();
 
         if ("OCUPADA".equals(estadoActual)) {
             JOptionPane.showMessageDialog(
@@ -194,7 +294,6 @@ public class AdminFrame extends JFrame {
         }
 
         String[] estados = {"DISPONIBLE", "INACTIVA"};
-
         JComboBox<String> selector = new JComboBox<>(estados);
         selector.setSelectedItem(estadoActual);
 
@@ -238,14 +337,7 @@ public class AdminFrame extends JFrame {
             cargarVentanillas();
 
         } catch (Exception e) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "No fue posible cambiar el estado:\n"
-                    + e.getMessage(),
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE
-            );
+            mostrarError("No fue posible cambiar el estado.", e);
         }
     }
 
@@ -277,14 +369,18 @@ public class AdminFrame extends JFrame {
             new LoginFrame().setVisible(true);
 
         } catch (Exception e) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Error al cerrar sesión:\n" + e.getMessage(),
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE
-            );
+            mostrarError("Error al cerrar sesión.", e);
         }
     }
+
+    private void mostrarError(String mensaje, Exception e) {
+        JOptionPane.showMessageDialog(
+                this,
+                mensaje + "\n" + e.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE
+        );
+    }
 }
+
 
