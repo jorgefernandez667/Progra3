@@ -9,6 +9,7 @@ import cr.ac.una.turnos.common.protocol.Response;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.GridLayout;
 import java.util.List;
 import java.util.Map;
 import javax.swing.*;
@@ -29,6 +30,7 @@ public class AdminFrame extends JFrame {
     private final JButton botonActualizarVentanillas;
     private final JButton botonCambiarEstado;
     private final JButton botonActualizarUsuarios;
+    private final JButton botonCrearOperador;
 
     public AdminFrame(
             TcpSessionClient cliente,
@@ -40,7 +42,7 @@ public class AdminFrame extends JFrame {
         this.nombreCompleto = nombreCompleto;
 
         setTitle("Administración - Sistema de Turnos");
-        setSize(850, 550);
+        setSize(900, 580);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 
@@ -94,6 +96,7 @@ public class AdminFrame extends JFrame {
 
         JTabbedPane pestañas = new JTabbedPane();
 
+        // Pestaña de ventanillas
         JPanel panelVentanillas = new JPanel(new BorderLayout(10, 10));
         panelVentanillas.setBorder(
                 BorderFactory.createEmptyBorder(15, 15, 15, 15)
@@ -116,6 +119,7 @@ public class AdminFrame extends JFrame {
                 BorderLayout.SOUTH
         );
 
+        // Pestaña de usuarios
         JPanel panelUsuarios = new JPanel(new BorderLayout(10, 10));
         panelUsuarios.setBorder(
                 BorderFactory.createEmptyBorder(15, 15, 15, 15)
@@ -127,9 +131,11 @@ public class AdminFrame extends JFrame {
         );
 
         botonActualizarUsuarios = new JButton("Actualizar usuarios");
+        botonCrearOperador = new JButton("Crear operador");
 
         JPanel botonesUsuarios = new JPanel(new FlowLayout());
         botonesUsuarios.add(botonActualizarUsuarios);
+        botonesUsuarios.add(botonCrearOperador);
 
         panelUsuarios.add(botonesUsuarios, BorderLayout.SOUTH);
 
@@ -156,6 +162,10 @@ public class AdminFrame extends JFrame {
 
         botonActualizarUsuarios.addActionListener(
                 e -> cargarUsuarios()
+        );
+
+        botonCrearOperador.addActionListener(
+                e -> mostrarFormularioOperador()
         );
 
         botonCerrarSesion.addActionListener(
@@ -199,7 +209,6 @@ public class AdminFrame extends JFrame {
 
             if (ventanillas != null) {
                 for (Object elemento : ventanillas) {
-
                     Map<?, ?> datos = (Map<?, ?>) elemento;
 
                     modeloVentanillas.addRow(new Object[]{
@@ -238,7 +247,6 @@ public class AdminFrame extends JFrame {
 
             if (usuarios != null) {
                 for (Object elemento : usuarios) {
-
                     Map<?, ?> datos = (Map<?, ?>) elemento;
 
                     modeloUsuarios.addRow(new Object[]{
@@ -259,6 +267,90 @@ public class AdminFrame extends JFrame {
             mostrarError("No fue posible consultar los usuarios.", e);
         } finally {
             botonActualizarUsuarios.setEnabled(true);
+        }
+    }
+
+    private void mostrarFormularioOperador() {
+
+        JTextField campoUsuario = new JTextField(20);
+        JPasswordField campoContrasena = new JPasswordField(20);
+        JTextField campoNombre = new JTextField(20);
+
+        JPanel formulario = new JPanel(new GridLayout(0, 1, 5, 5));
+
+        formulario.add(new JLabel("Nombre de usuario:"));
+        formulario.add(campoUsuario);
+
+        formulario.add(new JLabel("Contraseña (mínimo 8 caracteres):"));
+        formulario.add(campoContrasena);
+
+        formulario.add(new JLabel("Nombre completo del funcionario:"));
+        formulario.add(campoNombre);
+
+        int opcion = JOptionPane.showConfirmDialog(
+                this,
+                formulario,
+                "Registrar nuevo operador",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (opcion != JOptionPane.OK_OPTION) {
+            return;
+        }
+
+        String nombreUsuario = campoUsuario.getText().trim();
+        String contrasena = new String(campoContrasena.getPassword());
+        String nombreCompleto = campoNombre.getText().trim();
+
+        if (nombreUsuario.isBlank()
+                || contrasena.isBlank()
+                || nombreCompleto.isBlank()) {
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Todos los campos son obligatorios.",
+                    "Validación",
+                    JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        if (contrasena.length() < 8) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "La contraseña debe tener al menos 8 caracteres.",
+                    "Validación",
+                    JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        try {
+            Response respuesta = cliente.enviarSolicitud(
+                    TipoMensaje.CREAR_USUARIO,
+                    Map.of(
+                            "nombreUsuario", nombreUsuario,
+                            "contrasena", contrasena,
+                            "nombreCompleto", nombreCompleto
+                    )
+            );
+
+            if (!respuesta.isExitoso()) {
+                throw new IllegalStateException(respuesta.getMensaje());
+            }
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    respuesta.getMensaje(),
+                    "Operación exitosa",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+
+            cargarUsuarios();
+
+        } catch (Exception e) {
+            mostrarError("No fue posible crear el operador.", e);
         }
     }
 
@@ -382,5 +474,3 @@ public class AdminFrame extends JFrame {
         );
     }
 }
-
-
