@@ -327,39 +327,61 @@ public List<Turno> obtenerTurnosPendientes() throws SQLException {
 
     return resultado;
 }
-public List<Turno> obtenerUltimosTurnosLlamados() throws SQLException {
-    List<Turno> turnos = new ArrayList<>();
+public List<Turno> obtenerUltimosTurnosLlamados()
+        throws SQLException {
 
     String sql = """
-        SELECT codigo, estado, id_ventanilla, hora_llamado,
-               hora_inicio_atencion, hora_fin_atencion
-        FROM turno
-        WHERE estado IN ('LLAMADO', 'EN_ATENCION', 'FINALIZADO')
-        ORDER BY hora_llamado DESC
-        LIMIT 5
+        SELECT t.codigo, t.estado, t.id_ventanilla,
+               t.hora_llamado, t.hora_inicio_atencion,
+               t.hora_fin_atencion,
+               s.id_servicio, s.prefijo, s.nombre
+        FROM turno t
+        INNER JOIN servicio s
+            ON t.id_servicio = s.id_servicio
+        WHERE t.hora_llamado IS NOT NULL
+        ORDER BY t.hora_llamado DESC
+        LIMIT 10
         """;
+
+    List<Turno> turnos = new ArrayList<>();
 
     try (Connection conexion = DatabaseConfig.obtenerConexion();
          PreparedStatement ps = conexion.prepareStatement(sql);
          ResultSet rs = ps.executeQuery()) {
 
         while (rs.next()) {
-            Turno turno = new Turno();
 
+            Servicio servicio = new Servicio(
+                    rs.getInt("id_servicio"),
+                    rs.getString("prefijo"),
+                    rs.getString("nombre"),
+                    null,
+                    true
+            );
+
+            Turno turno = new Turno();
             turno.setCodigo(rs.getString("codigo"));
-            turno.setEstado(EstadoTurno.valueOf(rs.getString("estado")));
+            turno.setServicio(servicio);
+            turno.setEstado(
+                    EstadoTurno.valueOf(rs.getString("estado"))
+            );
 
             int idVentanilla = rs.getInt("id_ventanilla");
-            turno.setIdVentanilla(rs.wasNull() ? null : idVentanilla);
+            turno.setIdVentanilla(
+                    rs.wasNull() ? null : idVentanilla
+            );
 
             Timestamp llamado = rs.getTimestamp("hora_llamado");
             if (llamado != null) {
                 turno.setFechaLlamado(llamado.toLocalDateTime());
             }
 
-            Timestamp inicio = rs.getTimestamp("hora_inicio_atencion");
+            Timestamp inicio =
+                    rs.getTimestamp("hora_inicio_atencion");
             if (inicio != null) {
-                turno.setFechaInicioAtencion(inicio.toLocalDateTime());
+                turno.setFechaInicioAtencion(
+                        inicio.toLocalDateTime()
+                );
             }
 
             Timestamp fin = rs.getTimestamp("hora_fin_atencion");
@@ -585,11 +607,14 @@ public void cambiarEstadoConHistorial(
 public Turno obtenerUltimoTurnoLlamado() throws SQLException {
 
     String sql = """
-        SELECT codigo, estado, id_ventanilla,
-               hora_llamado
-        FROM turno
-        WHERE hora_llamado IS NOT NULL
-        ORDER BY hora_llamado DESC
+        SELECT t.codigo, t.estado, t.id_ventanilla,
+               t.hora_llamado,
+               s.id_servicio, s.prefijo, s.nombre
+        FROM turno t
+        INNER JOIN servicio s
+            ON t.id_servicio = s.id_servicio
+        WHERE t.hora_llamado IS NOT NULL
+        ORDER BY t.hora_llamado DESC
         LIMIT 1
         """;
 
@@ -601,8 +626,17 @@ public Turno obtenerUltimoTurnoLlamado() throws SQLException {
             return null;
         }
 
+        Servicio servicio = new Servicio(
+                rs.getInt("id_servicio"),
+                rs.getString("prefijo"),
+                rs.getString("nombre"),
+                null,
+                true
+        );
+
         Turno turno = new Turno();
         turno.setCodigo(rs.getString("codigo"));
+        turno.setServicio(servicio);
         turno.setEstado(
                 EstadoTurno.valueOf(rs.getString("estado"))
         );
@@ -626,11 +660,14 @@ public List<Turno> obtenerTurnosEnAtencion()
         throws SQLException {
 
     String sql = """
-        SELECT codigo, estado, id_ventanilla,
-               hora_llamado, hora_inicio_atencion
-        FROM turno
-        WHERE estado = 'EN_ATENCION'
-        ORDER BY hora_inicio_atencion DESC
+        SELECT t.codigo, t.estado, t.id_ventanilla,
+               t.hora_llamado, t.hora_inicio_atencion,
+               s.id_servicio, s.prefijo, s.nombre
+        FROM turno t
+        INNER JOIN servicio s
+            ON t.id_servicio = s.id_servicio
+        WHERE t.estado = 'EN_ATENCION'
+        ORDER BY t.hora_inicio_atencion DESC
         """;
 
     List<Turno> turnos = new ArrayList<>();
@@ -640,9 +677,18 @@ public List<Turno> obtenerTurnosEnAtencion()
          ResultSet rs = ps.executeQuery()) {
 
         while (rs.next()) {
-            Turno turno = new Turno();
 
+            Servicio servicio = new Servicio(
+                    rs.getInt("id_servicio"),
+                    rs.getString("prefijo"),
+                    rs.getString("nombre"),
+                    null,
+                    true
+            );
+
+            Turno turno = new Turno();
             turno.setCodigo(rs.getString("codigo"));
+            turno.setServicio(servicio);
             turno.setEstado(
                     EstadoTurno.valueOf(rs.getString("estado"))
             );
