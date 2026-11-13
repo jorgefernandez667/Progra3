@@ -11,6 +11,11 @@ import cr.ac.una.turnos.common.protocol.Response;
 import cr.ac.una.turnos.common.dto.ServicioDTO;
 import cr.ac.una.turnos.server.service.SesionService;
 import java.util.List;
+import cr.ac.una.turnos.common.domain.Ventanilla;
+import cr.ac.una.turnos.common.dto.VentanillaDTO;
+import cr.ac.una.turnos.common.enums.EstadoVentanilla;
+import cr.ac.una.turnos.common.enums.TipoUsuario;
+import cr.ac.una.turnos.server.dao.VentanillaDAO;
 import cr.ac.una.turnos.common.enums.PrioridadTurno;
 import cr.ac.una.turnos.common.domain.Servicio;
 import cr.ac.una.turnos.common.domain.Turno;
@@ -31,7 +36,7 @@ public class ClientHandler implements Runnable {
 
     private final Socket socket;
     private final ObjectMapper mapper;
-
+private final VentanillaDAO ventanillaDAO = new VentanillaDAO();
     // Cada conexión TCP tiene su propia sesión.
     private final SesionService sesionService = new SesionService();
     
@@ -134,13 +139,19 @@ public class ClientHandler implements Runnable {
         return finalizarAtencion(request);
     
     case RECLAMAR_TURNO:
-    return reclamarTurno(request);
+        return reclamarTurno(request);
     
     case OBTENER_TURNOS_PENDIENTES:
-    return obtenerTurnosPendientes(request);
+        return obtenerTurnosPendientes(request);
     
     case ACTUALIZAR_PANTALLA:
-    return actualizarPantalla(request);
+        return actualizarPantalla(request);
+    
+    case OBTENER_VENTANILLAS:
+        return obtenerVentanillas(request);
+
+    case CAMBIAR_ESTADO_VENTANILLA:
+        return cambiarEstadoVentanilla(request);
 
 
     default:
@@ -688,6 +699,97 @@ private Response actualizarPantalla(Request request)
             true,
             "Información de pantalla obtenida correctamente.",
             datos
+    );
+}
+private void validarAdministrador() {
+    if (!sesionService.haySesionActiva()) {
+        throw new IllegalStateException(
+            "Debe iniciar sesión para realizar esta operación."
+        );
+    }
+
+    Funcionario funcionario = sesionService.getFuncionarioActual();
+
+    if (funcionario.getUsuario().getTipo() != TipoUsuario.ADMINISTRADOR) {
+        throw new IllegalStateException(
+            "No tiene permisos para realizar esta operación."
+        );
+    }
+}
+
+private Response obtenerVentanillas(Request request)
+        throws SQLException {
+
+    validarAdministrador();
+
+    List<Ventanilla> ventanillas = ventanillaDAO.obtenerTodas();
+
+    List<VentanillaDTO> datos = ventanillas.stream()
+        .map(v -> new VentanillaDTO(
+            v.getId(),
+            v.getNombre(),
+            v.getEstado(),
+            0,
+            "Sin asignación registrada"
+        ))
+        .toList();
+
+    return new Response(
+        request.getIdSolicitud(),
+        TipoMensaje.OBTENER_VENTANILLAS,
+        true,
+        "Ventanillas obtenidas correctamente.",
+        datos
+    );
+}
+
+private Response cambiarEstadoVentanilla(Request request)
+        throws SQLException {
+
+    validarAdministrador();
+
+    if (request.getDatos() == null) {
+        throw new IllegalArgumentException(
+            "Faltan los datos de la ventanilla."
+        );
+    }
+
+    Map<String, Object> datos = mapper.convertValue(
+        request.getDatos(),
+        new TypeReference<Map<String, Object>>() {}
+    );
+
+    Object valorId = datos.get("idVentanilla");
+    Object valorEstado = datos.get("estado");
+
+    if (valorId == null || valorEstado == null) {
+        throw new IllegalArgumentException(
+            "Debe indicar la ventanilla y el nuevo estado."
+        );
+    }
+
+    int idVentanilla = Integer.parseInt(valorId.toString());
+
+    EstadoVentanilla estado;
+
+    try {
+        estado = EstadoVentanilla.valueOf(
+            valorEstado.toString().trim().toUpperCase()
+        );
+    } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException(
+            "El estado indicado no es válido."
+        );
+    }
+
+    ventanillaDAO.cambiarEstado(idVentanilla, estado);
+
+    return new Response(
+        request.getIdSolicitud(),
+        TipoMensaje.CAMBIAR_ESTADO_VENTANILLA,
+        true,
+        "Estado de la ventanilla actualizado correctamente.",
+        null
     );
 }
 }

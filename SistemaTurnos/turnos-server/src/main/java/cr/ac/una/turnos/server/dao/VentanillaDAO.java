@@ -2,7 +2,10 @@
 package cr.ac.una.turnos.server.dao;
 
 import cr.ac.una.turnos.server.config.DatabaseConfig;
-
+import cr.ac.una.turnos.common.domain.Ventanilla;
+import cr.ac.una.turnos.common.enums.EstadoVentanilla;
+import java.util.ArrayList;
+import java.util.List;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -168,6 +171,65 @@ public class VentanillaDAO {
             }
         }
     }
+    public List<Ventanilla> obtenerTodas() throws SQLException {
+    String sql = """
+        SELECT id_ventanilla, nombre, estado
+        FROM ventanilla
+        ORDER BY id_ventanilla
+        """;
+
+    List<Ventanilla> resultado = new ArrayList<>();
+
+    try (Connection conexion = DatabaseConfig.obtenerConexion();
+         PreparedStatement ps = conexion.prepareStatement(sql);
+         ResultSet rs = ps.executeQuery()) {
+
+        while (rs.next()) {
+            resultado.add(new Ventanilla(
+                rs.getInt("id_ventanilla"),
+                rs.getString("nombre"),
+                EstadoVentanilla.valueOf(rs.getString("estado"))
+            ));
+        }
+    }
+
+    return resultado;
+}
+
+public void cambiarEstado(
+        int idVentanilla,
+        EstadoVentanilla nuevoEstado) throws SQLException {
+
+    if (nuevoEstado == null) {
+        throw new IllegalArgumentException("Debe indicar un estado.");
+    }
+
+    if (nuevoEstado == EstadoVentanilla.OCUPADA) {
+        throw new IllegalArgumentException(
+            "El estado OCUPADA se asigna automáticamente al iniciar una sesión de operador."
+        );
+    }
+
+    String sql = """
+        UPDATE ventanilla
+        SET estado = ?
+        WHERE id_ventanilla = ?
+          AND estado <> 'OCUPADA'
+        """;
+
+    try (Connection conexion = DatabaseConfig.obtenerConexion();
+         PreparedStatement ps = conexion.prepareStatement(sql)) {
+
+        ps.setString(1, nuevoEstado.name());
+        ps.setInt(2, idVentanilla);
+
+        if (ps.executeUpdate() != 1) {
+            throw new IllegalStateException(
+                "No se encontró la ventanilla o está ocupada."
+            );
+        }
+    }
+}
 }
 
 
