@@ -20,6 +20,7 @@ public class DatosIniciales {
             try {
                 crearOperador(conexion, "operador1", "Operador 1");
                 crearOperador(conexion, "operador2", "Operador 2");
+                crearAdministrador(conexion, "admin", "Admin123*");
 
                 crearVentanilla(conexion, "Ventanilla 1");
                 crearVentanilla(conexion, "Ventanilla 2");
@@ -153,5 +154,40 @@ public class DatosIniciales {
             ps.executeUpdate();
         }
     }
+    private static void crearAdministrador(
+        Connection conexion,
+        String nombreUsuario,
+        String contrasena) throws SQLException {
+
+    String consulta = """
+        SELECT id_usuario
+        FROM usuario
+        WHERE nombre_usuario = ?
+        """;
+
+    try (PreparedStatement ps = conexion.prepareStatement(consulta)) {
+        ps.setString(1, nombreUsuario);
+
+        try (ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                System.out.println("El administrador ya existe.");
+                return;
+            }
+        }
+    }
+
+    String insertar = """
+        INSERT INTO usuario (nombre_usuario, contrasena, rol)
+        VALUES (?, ?, 'ADMINISTRADOR')
+        """;
+
+    try (PreparedStatement ps = conexion.prepareStatement(insertar)) {
+        ps.setString(1, nombreUsuario);
+        ps.setString(2, PasswordUtil.hash(contrasena));
+        ps.executeUpdate();
+    }
+
+    System.out.println("Administrador creado correctamente.");
+}
 }
 
