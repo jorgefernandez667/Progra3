@@ -423,6 +423,21 @@ public Turno llamarSiguienteTurno(
     FOR UPDATE
     """;
 
+    String sqlBloquearVentanilla = """
+        SELECT id_ventanilla
+        FROM ventanilla
+        WHERE id_ventanilla = ?
+        FOR UPDATE
+        """;
+
+    String sqlTurnoActivo = """
+        SELECT codigo, estado
+        FROM turno
+        WHERE id_ventanilla = ?
+          AND estado IN ('LLAMADO', 'EN_ATENCION')
+        LIMIT 1
+        """;
+
     String sqlActualizar = """
         UPDATE turno
         SET estado = 'LLAMADO',
@@ -444,6 +459,39 @@ public Turno llamarSiguienteTurno(
 
         try {
             Turno turno;
+
+            // Regla: una ventanilla no puede atender dos turnos a la vez.
+            // Se bloquea la fila de la ventanilla para que dos solicitudes
+            // simultáneas de la misma ventanilla se ejecuten en serie.
+            try (PreparedStatement ps =
+                         conexion.prepareStatement(sqlBloquearVentanilla)) {
+
+                ps.setInt(1, idVentanilla);
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        throw new IllegalArgumentException(
+                            "La ventanilla indicada no existe."
+                        );
+                    }
+                }
+            }
+
+            try (PreparedStatement ps =
+                         conexion.prepareStatement(sqlTurnoActivo)) {
+
+                ps.setInt(1, idVentanilla);
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        throw new IllegalStateException(
+                            "Ya tiene el turno " + rs.getString("codigo")
+                            + " en estado " + rs.getString("estado")
+                            + ". Finalícelo antes de llamar otro."
+                        );
+                    }
+                }
+            }
 
             try (PreparedStatement ps =
                          conexion.prepareStatement(sqlBuscar);
@@ -507,6 +555,139 @@ public Turno llamarSiguienteTurno(
 
             conexion.commit();
             return turno;
+
+        } catch (SQLException | RuntimeException e) {
+            conexion.rollback();
+            throw e;
+        } finally {
+            conexion.setAutoCommit(true);
+        }
+    }
+}
+
+private record TurnoActivo(
+        int id, String estado, Integer idFuncionario) {
+}
+
+/**
+ * Libera los turnos que quedaron activos en una ventanilla cuando
+ * termina la sesión de su operador (o al iniciar una sesión nueva,
+ * para recuperar turnos huérfanos de una caída anterior).
+ *
+ * LLAMADO     -> EN_ESPERA  (vuelve a la cola para otro operador)
+ * EN_ATENCION -> ABANDONADO (la atención no pudo terminarse)
+ *
+ * Todo ocurre en una sola transacción, con historial.
+ *
+ * @return cantidad de turnos liberados
+ */
+public int liberarTurnosActivosDeVentanilla(int idVentanilla)
+        throws SQLException {
+
+    String sqlBuscar = """
+        SELECT id_turno, estado, id_funcionario
+        FROM turno
+        WHERE id_ventanilla = ?
+          AND estado IN ('LLAMADO', 'EN_ATENCION')
+        FOR UPDATE
+        """;
+
+    String sqlDevolver = """
+        UPDATE turno
+        SET estado = 'EN_ESPERA',
+            hora_llamado = NULL,
+            id_ventanilla = NULL,
+            id_funcionario = NULL
+        WHERE id_turno = ? AND estado = 'LLAMADO'
+        """;
+
+    String sqlAbandonar = """
+        UPDATE turno
+        SET estado = 'ABANDONADO'
+        WHERE id_turno = ? AND estado = 'EN_ATENCION'
+        """;
+
+    String sqlHistorial = """
+        INSERT INTO historial_turno
+            (id_turno, estado, fecha_hora,
+             id_funcionario, id_ventanilla, comentario)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """;
+
+    try (Connection conexion = DatabaseConfig.obtenerConexion()) {
+        conexion.setAutoCommit(false);
+
+        try {
+            List<TurnoActivo> activos = new ArrayList<>();
+
+            try (PreparedStatement ps =
+                         conexion.prepareStatement(sqlBuscar)) {
+
+                ps.setInt(1, idVentanilla);
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        int idFuncionario = rs.getInt("id_funcionario");
+
+                        activos.add(new TurnoActivo(
+                                rs.getInt("id_turno"),
+                                rs.getString("estado"),
+                                rs.wasNull() ? null : idFuncionario
+                        ));
+                    }
+                }
+            }
+
+            Timestamp ahora = Timestamp.valueOf(LocalDateTime.now());
+
+            for (TurnoActivo activo : activos) {
+
+                boolean devolver = "LLAMADO".equals(activo.estado());
+
+                String nuevoEstado = devolver
+                        ? "EN_ESPERA"
+                        : "ABANDONADO";
+
+                String comentario = devolver
+                        ? "Devuelto a la cola: el operador cerró sesión"
+                        : "Abandonado: la sesión del operador terminó "
+                          + "durante la atención";
+
+                try (PreparedStatement ps = conexion.prepareStatement(
+                        devolver ? sqlDevolver : sqlAbandonar)) {
+
+                    ps.setInt(1, activo.id());
+
+                    if (ps.executeUpdate() != 1) {
+                        throw new SQLException(
+                                "El turno " + activo.id()
+                                + " cambió de estado durante la liberación."
+                        );
+                    }
+                }
+
+                try (PreparedStatement ps =
+                             conexion.prepareStatement(sqlHistorial)) {
+
+                    ps.setInt(1, activo.id());
+                    ps.setString(2, nuevoEstado);
+                    ps.setTimestamp(3, ahora);
+
+                    if (activo.idFuncionario() == null) {
+                        ps.setNull(4, java.sql.Types.INTEGER);
+                    } else {
+                        ps.setInt(4, activo.idFuncionario());
+                    }
+
+                    ps.setInt(5, idVentanilla);
+                    ps.setString(6, comentario);
+
+                    ps.executeUpdate();
+                }
+            }
+
+            conexion.commit();
+            return activos.size();
 
         } catch (SQLException | RuntimeException e) {
             conexion.rollback();

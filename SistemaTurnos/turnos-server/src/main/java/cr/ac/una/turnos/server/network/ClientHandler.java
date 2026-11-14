@@ -285,13 +285,18 @@ private Response iniciarSesion(Request request)
             );
         }
 
-        sesionService.cerrarSesion();
+        int turnosLiberados = sesionService.cerrarSesion();
+
+        String mensaje = turnosLiberados == 0
+            ? "Sesión cerrada correctamente."
+            : "Sesión cerrada correctamente. Se liberaron "
+                + turnosLiberados + " turno(s) que estaban activos.";
 
         return new Response(
             request.getIdSolicitud(),
             TipoMensaje.LOGOUT,
             true,
-            "Sesión cerrada correctamente.",
+            mensaje,
             null
         );
     }

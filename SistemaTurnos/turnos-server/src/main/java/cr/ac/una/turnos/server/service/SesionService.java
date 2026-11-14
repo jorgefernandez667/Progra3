@@ -3,6 +3,7 @@ package cr.ac.una.turnos.server.service;
 
 import cr.ac.una.turnos.common.domain.Funcionario;
 import cr.ac.una.turnos.common.enums.TipoUsuario;
+import cr.ac.una.turnos.server.dao.TurnoDAO;
 import cr.ac.una.turnos.server.dao.UsuarioDAO;
 import cr.ac.una.turnos.server.dao.VentanillaDAO;
 
@@ -10,6 +11,7 @@ import java.sql.SQLException;
 
 public class SesionService {
 
+    private final TurnoDAO turnoDAO = new TurnoDAO();
     private final UsuarioDAO usuarioDAO = new UsuarioDAO();
     private final VentanillaDAO ventanillaDAO = new VentanillaDAO();
 
@@ -47,13 +49,49 @@ public class SesionService {
         if (funcionario.getUsuario().getTipo() == TipoUsuario.OPERADOR) {
             idVentanilla =
                     ventanillaDAO.asignarVentanilla(funcionario.getId());
+
+            // La ventanilla estaba DISPONIBLE, así que cualquier turno
+            // que aún figure activo en ella es un huérfano (por ejemplo,
+            // tras una caída del servidor). Se devuelve a la cola.
+            try {
+                int liberados =
+                        turnoDAO.liberarTurnosActivosDeVentanilla(
+                                idVentanilla
+                        );
+
+                if (liberados > 0) {
+                    System.out.println(
+                            "Se liberaron " + liberados
+                            + " turno(s) huérfano(s) de la ventanilla "
+                            + idVentanilla + "."
+                    );
+                }
+
+            } catch (SQLException | RuntimeException e) {
+                // No dejar la ventanilla ocupada si el inicio falla.
+                try {
+                    ventanillaDAO.liberarVentanilla(
+                            idVentanilla,
+                            funcionario.getId()
+                    );
+                } catch (SQLException ignorada) {
+                    e.addSuppressed(ignorada);
+                }
+                throw e;
+            }
         }
 
         funcionarioActual = funcionario;
         idVentanillaActual = idVentanilla;
     }
 
-    public synchronized void cerrarSesion() throws SQLException {
+    /**
+     * Cierra la sesión actual. Si el operador tenía un turno llamado o
+     * en atención, se libera antes de soltar la ventanilla.
+     *
+     * @return cantidad de turnos liberados
+     */
+    public synchronized int cerrarSesion() throws SQLException {
 
         if (funcionarioActual == null) {
             throw new IllegalStateException(
@@ -61,7 +99,14 @@ public class SesionService {
             );
         }
 
+        int turnosLiberados = 0;
+
         if (idVentanillaActual != null) {
+            turnosLiberados =
+                    turnoDAO.liberarTurnosActivosDeVentanilla(
+                            idVentanillaActual
+                    );
+
             ventanillaDAO.liberarVentanilla(
                     idVentanillaActual,
                     funcionarioActual.getId()
@@ -70,6 +115,8 @@ public class SesionService {
 
         funcionarioActual = null;
         idVentanillaActual = null;
+
+        return turnosLiberados;
     }
 
     public synchronized boolean haySesionActiva() {
