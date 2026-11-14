@@ -11,6 +11,7 @@ import cr.ac.una.turnos.common.protocol.Response;
 import cr.ac.una.turnos.common.dto.ServicioDTO;
 import cr.ac.una.turnos.server.service.SesionService;
 import java.util.List;
+import cr.ac.una.turnos.server.dao.ReporteDAO;
 import cr.ac.una.turnos.common.domain.Ventanilla;
 import cr.ac.una.turnos.common.dto.VentanillaDTO;
 import cr.ac.una.turnos.common.enums.EstadoVentanilla;
@@ -37,6 +38,7 @@ import cr.ac.una.turnos.server.dao.UsuarioDAO;
 public class ClientHandler implements Runnable {
 
     private final Socket socket;
+    private final ReporteDAO reporteDAO = new ReporteDAO();
     private final ObjectMapper mapper;
 private final VentanillaDAO ventanillaDAO = new VentanillaDAO();
 private final UsuarioDAO usuarioDAO = new UsuarioDAO();
@@ -184,6 +186,9 @@ public void run() {
         
     case CREAR_USUARIO:
         return crearUsuario(request);
+    
+    case OBTENER_REPORTES:
+        return obtenerReportes(request);
 
 
     default:
@@ -873,5 +878,90 @@ private Response crearUsuario(Request request)
             null
     );
 }
+
+private Response obtenerReportes(Request request)
+        throws SQLException {
+
+    validarAdministrador();
+
+    if (request.getDatos() == null) {
+        throw new IllegalArgumentException(
+            "Debe indicar el tipo de reporte y el periodo."
+        );
+    }
+
+    Map<String, Object> datos = mapper.convertValue(
+        request.getDatos(),
+        new TypeReference<Map<String, Object>>() {}
+    );
+
+    String tipoReporte = obtenerTexto(datos.get("tipoReporte"));
+    String fechaDesdeTexto = obtenerTexto(datos.get("fechaDesde"));
+    String fechaHastaTexto = obtenerTexto(datos.get("fechaHasta"));
+
+    if (tipoReporte == null
+            || fechaDesdeTexto == null
+            || fechaHastaTexto == null) {
+        throw new IllegalArgumentException(
+            "Debe completar el tipo de reporte y ambas fechas."
+        );
+    }
+
+    java.sql.Date desde;
+    java.sql.Date hasta;
+
+    try {
+        desde = java.sql.Date.valueOf(fechaDesdeTexto);
+        hasta = java.sql.Date.valueOf(fechaHastaTexto);
+    } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException(
+            "Las fechas deben tener el formato AAAA-MM-DD."
+        );
+    }
+
+    if (desde.after(hasta)) {
+        throw new IllegalArgumentException(
+            "La fecha inicial no puede ser posterior a la fecha final."
+        );
+    }
+
+    List<Map<String, Object>> resultados;
+
+    switch (tipoReporte) {
+        case "TURNOS_ATENDIDOS":
+            resultados = reporteDAO.obtenerTurnosAtendidos(desde, hasta);
+            break;
+
+        case "POR_FUNCIONARIO":
+            resultados = reporteDAO.obtenerAtencionPorFuncionario(desde, hasta);
+            break;
+
+        case "POR_SERVICIO":
+            resultados = reporteDAO.obtenerAtencionPorServicio(desde, hasta);
+            break;
+
+        case "TIEMPOS_ESPERA":
+            resultados = reporteDAO.obtenerTiemposEspera(desde, hasta);
+            break;
+
+        case "TIEMPOS_ATENCION":
+            resultados = reporteDAO.obtenerTiemposAtencion(desde, hasta);
+            break;
+
+        default:
+            throw new IllegalArgumentException(
+                "El tipo de reporte seleccionado no es válido."
+            );
+    }
+
+    return new Response(
+        request.getIdSolicitud(),
+        TipoMensaje.OBTENER_REPORTES,
+        true,
+        "Reporte generado correctamente.",
+        resultados
+    );
+}
+
 }
 
