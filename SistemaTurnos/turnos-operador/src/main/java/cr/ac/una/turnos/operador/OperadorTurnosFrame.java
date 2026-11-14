@@ -386,9 +386,19 @@ private void cargarTurnosPendientes() {
 }
 private void cerrarSesion() {
 
+    String aviso = "¿Desea cerrar la sesión y liberar la ventanilla?";
+
+    if (turnoActual != null) {
+        aviso += turnoActual.getEstado() == EstadoTurno.EN_ATENCION
+                ? "\n\nEl turno " + turnoActual.getCodigo()
+                  + " está en atención y quedará como ABANDONADO."
+                : "\n\nEl turno " + turnoActual.getCodigo()
+                  + " volverá a la cola de espera.";
+    }
+
     int respuesta = JOptionPane.showConfirmDialog(
             this,
-            "¿Desea cerrar la sesión y liberar la ventanilla?",
+            aviso,
             "Cerrar sesión",
             JOptionPane.YES_NO_OPTION
     );
