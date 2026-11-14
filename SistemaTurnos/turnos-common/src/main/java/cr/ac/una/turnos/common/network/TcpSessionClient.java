@@ -37,7 +37,7 @@ public class TcpSessionClient implements AutoCloseable {
         );
 
         socket = new Socket(host, Integer.parseInt(puerto));
-        socket.setSoTimeout(120000);
+        socket.setSoTimeout(600000);
 
         entrada = new BufferedReader(
                 new InputStreamReader(

@@ -50,69 +50,85 @@ private final UsuarioDAO usuarioDAO = new UsuarioDAO();
         this.mapper = mapper;
     }
 
-    @Override
-    public void run() {
+    
+@Override
+public void run() {
 
-        String direccion = socket.getInetAddress().getHostAddress();
+    String direccion = socket.getInetAddress().getHostAddress();
 
-        System.out.println("Cliente conectado: " + direccion);
+    System.out.println("Cliente conectado: " + direccion);
 
-        try (
-            Socket cliente = socket;
-            BufferedReader entrada = new BufferedReader(
-                new InputStreamReader(
-                    cliente.getInputStream(),
-                    StandardCharsets.UTF_8
-                )
-            );
-            BufferedWriter salida = new BufferedWriter(
-                new OutputStreamWriter(
-                    cliente.getOutputStream(),
-                    StandardCharsets.UTF_8
-                )
+    try (
+        Socket cliente = socket;
+        BufferedReader entrada = new BufferedReader(
+            new InputStreamReader(
+                cliente.getInputStream(),
+                StandardCharsets.UTF_8
             )
-        ) {
+        );
+        BufferedWriter salida = new BufferedWriter(
+            new OutputStreamWriter(
+                cliente.getOutputStream(),
+                StandardCharsets.UTF_8
+            )
+        )
+    ) {
+
+        while (true) {
 
             String linea;
 
-            while ((linea = entrada.readLine()) != null) {
+            try {
+                linea = entrada.readLine();
 
-                Request request = mapper.readValue(
-                    linea,
-                    Request.class
-                );
+            } catch (java.net.SocketTimeoutException e) {
 
-                Response response = procesar(request);
-
-                salida.write(mapper.writeValueAsString(response));
-                salida.newLine();
-                salida.flush();
+                // El cliente sigue conectado, pero no ha enviado
+                // una solicitud. Continuamos esperando.
+                continue;
             }
 
-        } catch (IOException e) {
+            if (linea == null) {
+                break;
+            }
 
-    System.err.println(
-        "Error de comunicación con el cliente " + direccion
-    );
-
-    System.err.println(
-        "Causa: " + e.getClass().getSimpleName()
-        + " - " + e.getMessage()
-    );
-
-    e.printStackTrace();
-
-        } finally {
-
-            // Si el cliente se desconecta sin hacer LOGOUT,
-            // intentamos liberar su ventanilla.
-            liberarSesionAlDesconectar();
-
-            System.out.println(
-                "Cliente desconectado: " + direccion
+            Request request = mapper.readValue(
+                linea,
+                Request.class
             );
+
+            Response response = procesar(request);
+
+            salida.write(mapper.writeValueAsString(response));
+            salida.newLine();
+            salida.flush();
         }
+
+    } catch (IOException e) {
+
+        System.err.println(
+            "Error de comunicación con el cliente " + direccion
+        );
+
+        System.err.println(
+            "Causa: " + e.getClass().getSimpleName()
+            + " - " + e.getMessage()
+        );
+
+        e.printStackTrace();
+
+    } finally {
+
+        // Si el cliente se desconecta sin hacer LOGOUT,
+        // intentamos liberar su ventanilla.
+        liberarSesionAlDesconectar();
+
+        System.out.println(
+            "Cliente desconectado: " + direccion
+        );
     }
+}
+
 
     private Response procesar(Request request) {
 
