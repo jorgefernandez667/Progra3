@@ -23,7 +23,124 @@ import cr.ac.una.turnos.common.enums.EstadoTurno;
 
 public class TurnoDAO {
 
+    /**
+     * Inserta un turno que ya trae su código. Para turnos nuevos use
+     * {@link #insertarConCodigoDiario(Turno)}, que asigna el código.
+     */
     public int insertar(Turno turno) throws SQLException {
+        try (Connection conexion = DatabaseConfig.obtenerConexion()) {
+            return insertar(conexion, turno);
+        }
+    }
+
+    /**
+     * Inserta un turno nuevo asignándole el siguiente código del día
+     * para su servicio (A001, A002, ... y vuelve a A001 cada día).
+     *
+     * El número sale de la tabla contador_turno y se incrementa con una
+     * sola sentencia (INSERT ... ON DUPLICATE KEY UPDATE). MySQL bloquea
+     * esa fila hasta el commit, así que dos clientes que generen turnos
+     * del mismo servicio al mismo tiempo se ejecutan en serie y nunca
+     * reciben el mismo número. El contador y el turno se guardan en la
+     * misma transacción: si algo falla, no se pierde ningún número.
+     */
+    public int insertarConCodigoDiario(Turno turno) throws SQLException {
+
+        if (turno == null) {
+            throw new IllegalArgumentException(
+                    "El turno no puede ser nulo."
+            );
+        }
+
+        if (turno.getServicio() == null
+                || turno.getServicio().getCodigo() == null
+                || turno.getServicio().getCodigo().isBlank()) {
+            throw new IllegalArgumentException(
+                    "El turno debe tener un servicio con prefijo."
+            );
+        }
+
+        if (turno.getFechaGeneracion() == null) {
+            turno.setFechaGeneracion(LocalDateTime.now());
+        }
+
+        try (Connection conexion = DatabaseConfig.obtenerConexion()) {
+            conexion.setAutoCommit(false);
+
+            try {
+                int numero = siguienteNumeroDelDia(
+                        conexion,
+                        turno.getFechaGeneracion().toLocalDate(),
+                        turno.getServicio().getId()
+                );
+
+                turno.setCodigo(String.format(
+                        "%s%03d",
+                        turno.getServicio().getCodigo(),
+                        numero
+                ));
+
+                int idGenerado = insertar(conexion, turno);
+
+                conexion.commit();
+                return idGenerado;
+
+            } catch (SQLException | RuntimeException e) {
+                conexion.rollback();
+                turno.setCodigo(null);
+                throw e;
+            } finally {
+                conexion.setAutoCommit(true);
+            }
+        }
+    }
+
+    private int siguienteNumeroDelDia(
+            Connection conexion,
+            java.time.LocalDate fecha,
+            int idServicio) throws SQLException {
+
+        String sqlIncrementar = """
+            INSERT INTO contador_turno (fecha, id_servicio, ultimo)
+            VALUES (?, ?, 1)
+            ON DUPLICATE KEY UPDATE ultimo = ultimo + 1
+            """;
+
+        String sqlLeer = """
+            SELECT ultimo
+            FROM contador_turno
+            WHERE fecha = ? AND id_servicio = ?
+            """;
+
+        try (PreparedStatement ps =
+                     conexion.prepareStatement(sqlIncrementar)) {
+
+            ps.setDate(1, Date.valueOf(fecha));
+            ps.setInt(2, idServicio);
+            ps.executeUpdate();
+        }
+
+        // La fila quedó bloqueada por esta transacción, así que el valor
+        // leído es el que acabamos de asignar.
+        try (PreparedStatement ps = conexion.prepareStatement(sqlLeer)) {
+
+            ps.setDate(1, Date.valueOf(fecha));
+            ps.setInt(2, idServicio);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("ultimo");
+                }
+            }
+        }
+
+        throw new SQLException(
+                "No se pudo obtener el número del turno."
+        );
+    }
+
+    private int insertar(Connection conexion, Turno turno)
+            throws SQLException {
 
         if (turno == null) {
             throw new IllegalArgumentException(
@@ -59,9 +176,7 @@ public class TurnoDAO {
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
-        try (Connection conexion =
-                     DatabaseConfig.obtenerConexion();
-             PreparedStatement sentencia =
+        try (PreparedStatement sentencia =
                      conexion.prepareStatement(
                              sql, Statement.RETURN_GENERATED_KEYS)) {
 
@@ -217,30 +332,6 @@ public class TurnoDAO {
     }
  }
 
- public int contarPorPrefijo(String prefijo)
-        throws SQLException {
-
-    String sql = """
-        SELECT COUNT(*)
-        FROM turno t
-        JOIN servicio s ON t.id_servicio = s.id_servicio
-        WHERE s.prefijo = ?
-        """;
-
-    try (Connection conexion = DatabaseConfig.obtenerConexion();
-         PreparedStatement sentencia = conexion.prepareStatement(sql)) {
-
-        sentencia.setString(1, prefijo);
-
-        try (ResultSet resultado = sentencia.executeQuery()) {
-            if (resultado.next()) {
-                return resultado.getInt(1);
-            }
-        }
-    }
-
-    return 0;
- }
 
 public List<Turno> obtenerTurnosPendientes() throws SQLException {
 

@@ -64,17 +64,17 @@ public synchronized Turno generarTurno(
         );
     }
 
-    String codigo = generarCodigo(servicio);
-
     Turno turno = new Turno();
-    turno.setCodigo(codigo);
     turno.setServicio(servicio);
     turno.setPrioridad(prioridad);
     turno.setEstado(EstadoTurno.EN_ESPERA);
     turno.setFechaGeneracion(LocalDateTime.now());
 
     try {
-        turnoDAO.insertar(turno);
+        // El código (A001, A002...) lo asigna la base de datos dentro de
+        // una transacción, por eso es seguro con varios clientes a la vez
+        // y reinicia cada día.
+        turnoDAO.insertarConCodigoDiario(turno);
     } catch (SQLException e) {
         throw new IllegalStateException(
                 "No se pudo guardar el turno en la base de datos.",
@@ -85,24 +85,6 @@ public synchronized Turno generarTurno(
     turnos.add(turno);
 
     return turno;
-}
-
-
-  
-private String generarCodigo(Servicio servicio) {
-    String prefijo = servicio.getCodigo();
-
-    try {
-        int cantidad = turnoDAO.contarPorPrefijo(prefijo);
-
-        return String.format("%s%03d", prefijo, cantidad + 1);
-
-    } catch (SQLException e) {
-        throw new IllegalStateException(
-                "No se pudo generar el código del turno.",
-                e
-        );
-    }
 }
 
 
