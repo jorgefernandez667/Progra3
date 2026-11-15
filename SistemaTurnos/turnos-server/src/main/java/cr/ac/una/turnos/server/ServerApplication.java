@@ -5,14 +5,69 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import cr.ac.una.turnos.server.config.ServerConfig;
 import cr.ac.una.turnos.server.network.ClientHandler;
+import cr.ac.una.turnos.server.service.TurnoService;
 
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class ServerApplication {
+
+    /**
+     * Cierre diario de la cola: al arrancar y cada medianoche cancela los
+     * turnos que nadie atendió el día en que se generaron.
+     */
+    private static void iniciarCierreDiario() {
+
+        TurnoService turnoService = new TurnoService();
+
+        Runnable cierre = () -> {
+            try {
+                int cancelados =
+                    turnoService.cancelarTurnosDeDiasAnteriores();
+
+                if (cancelados > 0) {
+                    System.out.println(
+                        "Cierre diario: " + cancelados
+                        + " turno(s) sin atender fueron cancelados."
+                    );
+                }
+
+            } catch (Exception e) {
+                System.err.println(
+                    "Error en el cierre diario: " + e.getMessage()
+                );
+            }
+        };
+
+        ScheduledExecutorService reloj =
+            Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread hilo = new Thread(r, "cierre-diario");
+                hilo.setDaemon(true);
+                return hilo;
+            });
+
+        reloj.execute(cierre);
+
+        long segundosHastaMedianoche = Duration.between(
+            LocalDateTime.now(),
+            LocalDate.now().plusDays(1).atStartOfDay()
+        ).getSeconds();
+
+        reloj.scheduleAtFixedRate(
+            cierre,
+            segundosHastaMedianoche + 5,
+            Duration.ofDays(1).getSeconds(),
+            TimeUnit.SECONDS
+        );
+    }
 
     public static void main(String[] args) {
 
@@ -36,6 +91,8 @@ public class ServerApplication {
                 "Servidor escuchando en el puerto: "
                 + ServerConfig.PORT
             );
+
+            iniciarCierreDiario();
 
             while (!Thread.currentThread().isInterrupted()) {
 
