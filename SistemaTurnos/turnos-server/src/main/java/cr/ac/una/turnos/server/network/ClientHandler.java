@@ -180,6 +180,9 @@ public void run() {
 
     case CAMBIAR_ESTADO_VENTANILLA:
         return cambiarEstadoVentanilla(request);
+
+    case CAMBIAR_DISPONIBILIDAD:
+        return cambiarDisponibilidad(request);
         
     case OBTENER_USUARIOS:
         return obtenerUsuarios(request);
@@ -782,6 +785,52 @@ private Response obtenerVentanillas(Request request)
         true,
         "Ventanillas obtenidas correctamente.",
         datos
+    );
+}
+
+private Response cambiarDisponibilidad(Request request)
+        throws SQLException {
+
+    if (!sesionService.haySesionActiva()) {
+        throw new IllegalStateException(
+            "Debe iniciar sesión para cambiar la disponibilidad."
+        );
+    }
+
+    if (request.getDatos() == null) {
+        throw new IllegalArgumentException(
+            "Debe indicar si la ventanilla queda disponible."
+        );
+    }
+
+    Map<String, Object> datos = mapper.convertValue(
+        request.getDatos(),
+        new TypeReference<Map<String, Object>>() {}
+    );
+
+    Object valor = datos.get("disponible");
+
+    if (valor == null
+            || !(valor.toString().equalsIgnoreCase("true")
+                || valor.toString().equalsIgnoreCase("false"))) {
+        throw new IllegalArgumentException(
+            "El valor de disponibilidad debe ser true o false."
+        );
+    }
+
+    boolean disponible = Boolean.parseBoolean(valor.toString());
+
+    EstadoVentanilla estado =
+        sesionService.cambiarDisponibilidad(disponible);
+
+    return new Response(
+        request.getIdSolicitud(),
+        TipoMensaje.CAMBIAR_DISPONIBILIDAD,
+        true,
+        disponible
+            ? "La ventanilla volvió a estar disponible."
+            : "La ventanilla quedó marcada como no disponible.",
+        Map.of("estado", estado.name())
     );
 }
 

@@ -12,6 +12,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -57,6 +58,13 @@ public class PantallaTurnosFrame extends JFrame {
             new Timer(3000, e -> actualizarPantalla());
 
     private boolean actualizacionEnCurso = false;
+
+    private final SonidoLlamado sonido = new SonidoLlamado();
+
+    /** Última llamada ya vista, para saber cuándo hay una nueva. */
+    private boolean primeraConsultaHecha = false;
+    private LocalDateTime ultimaFechaLlamada;
+    private String ultimoCodigoLlamado;
 
     public PantallaTurnosFrame() {
         configurarVentana();
@@ -297,7 +305,47 @@ public class PantallaTurnosFrame extends JFrame {
                 : String.valueOf(turno.getIdVentanilla());
     }
 
+    /**
+     * Suena el aviso cuando el último llamado es una llamada nueva o una
+     * repetición ("volver a llamar" actualiza la hora de llamado del
+     * mismo turno). En la primera consulta (al abrir la pantalla) solo se
+     * toma nota de la llamada que ya existiera, sin sonar; pero si todavía
+     * no había ninguna, la primera llamada que llegue sí suena. Si el
+     * último llamado "retrocede" (por ejemplo, un turno devuelto a la
+     * cola), tampoco suena.
+     */
+    private void avisarSiHayLlamadaNueva(TurnoDTO turno) {
+
+        boolean esPrimeraConsulta = !primeraConsultaHecha;
+        primeraConsultaHecha = true;
+
+        if (turno == null || turno.getFechaLlamado() == null) {
+            return;
+        }
+
+        LocalDateTime fecha = turno.getFechaLlamado();
+
+        if (esPrimeraConsulta) {
+            ultimaFechaLlamada = fecha;
+            ultimoCodigoLlamado = turno.getCodigo();
+            return;
+        }
+
+        boolean esNueva = ultimaFechaLlamada == null
+                || fecha.isAfter(ultimaFechaLlamada)
+                || (fecha.isEqual(ultimaFechaLlamada)
+                    && !turno.getCodigo().equals(ultimoCodigoLlamado));
+
+        if (esNueva) {
+            ultimaFechaLlamada = fecha;
+            ultimoCodigoLlamado = turno.getCodigo();
+            sonido.reproducir();
+        }
+    }
+
     private void mostrarUltimoLlamado(TurnoDTO turno) {
+
+        avisarSiHayLlamadaNueva(turno);
 
         if (turno == null) {
 

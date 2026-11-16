@@ -349,7 +349,7 @@ public List<Turno> obtenerTurnosPendientes() throws SQLException {
         INNER JOIN prioridad p
             ON t.id_prioridad = p.id_prioridad
         WHERE t.estado = 'EN_ESPERA'
-        ORDER BY t.hora_generacion ASC
+        ORDER BY t.hora_generacion ASC, t.id_turno ASC
         """;
 
     List<Turno> resultado = new ArrayList<>();
@@ -430,7 +430,7 @@ public List<Turno> obtenerUltimosTurnosLlamados()
         INNER JOIN servicio s
             ON t.id_servicio = s.id_servicio
         WHERE t.hora_llamado IS NOT NULL
-        ORDER BY t.hora_llamado DESC
+        ORDER BY t.hora_llamado DESC, t.id_turno DESC
         LIMIT 10
         """;
 
@@ -509,13 +509,14 @@ public Turno llamarSiguienteTurno(
             WHEN 1 THEN 3
             ELSE 4
         END ASC,
-        t.hora_generacion ASC
+        t.hora_generacion ASC,
+        t.id_turno ASC
     LIMIT 1
     FOR UPDATE
     """;
 
     String sqlBloquearVentanilla = """
-        SELECT id_ventanilla
+        SELECT estado
         FROM ventanilla
         WHERE id_ventanilla = ?
         FOR UPDATE
@@ -563,6 +564,28 @@ public Turno llamarSiguienteTurno(
                     if (!rs.next()) {
                         throw new IllegalArgumentException(
                             "La ventanilla indicada no existe."
+                        );
+                    }
+
+                    String estadoVentanilla = rs.getString("estado");
+
+                    if ("NO_DISPONIBLE".equals(estadoVentanilla)) {
+                        throw new IllegalStateException(
+                            "La ventanilla está marcada como no "
+                            + "disponible. Márquela como disponible "
+                            + "para llamar turnos."
+                        );
+                    }
+
+                    if ("INACTIVA".equals(estadoVentanilla)) {
+                        throw new IllegalStateException(
+                            "La ventanilla está inactiva."
+                        );
+                    }
+
+                    if (!"OCUPADA".equals(estadoVentanilla)) {
+                        throw new IllegalStateException(
+                            "La ventanilla no está en uso por un operador."
                         );
                     }
                 }
@@ -1009,7 +1032,7 @@ public Turno obtenerUltimoTurnoLlamado() throws SQLException {
         INNER JOIN servicio s
             ON t.id_servicio = s.id_servicio
         WHERE t.hora_llamado IS NOT NULL
-        ORDER BY t.hora_llamado DESC
+        ORDER BY t.hora_llamado DESC, t.id_turno DESC
         LIMIT 1
         """;
 

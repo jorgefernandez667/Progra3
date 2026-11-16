@@ -2,6 +2,7 @@
 package cr.ac.una.turnos.server.service;
 
 import cr.ac.una.turnos.common.domain.Funcionario;
+import cr.ac.una.turnos.common.enums.EstadoVentanilla;
 import cr.ac.una.turnos.common.enums.TipoUsuario;
 import cr.ac.una.turnos.server.dao.TurnoDAO;
 import cr.ac.una.turnos.server.dao.UsuarioDAO;
@@ -117,6 +118,28 @@ public class SesionService {
         idVentanillaActual = null;
 
         return turnosLiberados;
+    }
+
+    /**
+     * Marca la ventanilla del operador como no disponible (pausa) o la
+     * vuelve a poner disponible.
+     *
+     * @return el estado en que quedó la ventanilla
+     */
+    public synchronized EstadoVentanilla cambiarDisponibilidad(
+            boolean disponible) throws SQLException {
+
+        if (funcionarioActual == null || idVentanillaActual == null) {
+            throw new IllegalStateException(
+                    "Debe iniciar sesión como operador para cambiar "
+                    + "la disponibilidad de la ventanilla."
+            );
+        }
+
+        return ventanillaDAO.cambiarDisponibilidad(
+                idVentanillaActual,
+                disponible
+        );
     }
 
     public synchronized boolean haySesionActiva() {
