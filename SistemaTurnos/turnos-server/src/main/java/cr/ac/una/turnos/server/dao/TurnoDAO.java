@@ -789,6 +789,129 @@ public int liberarTurnosActivosDeVentanilla(int idVentanilla)
     }
 }
 
+/**
+ * Cancela los turnos que quedaron EN_ESPERA de días anteriores: como en
+ * un hospital, quien no fue atendido el día en que sacó su turno tiene
+ * que pedir uno nuevo. Cada cancelación queda en historial_turno.
+ *
+ * Solo se tocan turnos EN_ESPERA. Los LLAMADO o EN_ATENCION no se
+ * modifican aquí: los libera la sesión del operador (ver
+ * liberarTurnosActivosDeVentanilla).
+ *
+ * Es seguro llamarlo varias veces y desde varios hilos: la consulta de
+ * revisión no bloquea nada y, si hay turnos viejos, se bloquean solo
+ * esas filas dentro de una transacción.
+ *
+ * @param hoy día actual; se cancela todo lo generado antes de esa fecha
+ * @return cantidad de turnos cancelados
+ */
+public int cancelarTurnosPendientesDeDiasAnteriores(
+        java.time.LocalDate hoy) throws SQLException {
+
+    if (hoy == null) {
+        throw new IllegalArgumentException(
+            "La fecha actual no puede ser nula."
+        );
+    }
+
+    String sqlHay = """
+        SELECT 1
+        FROM turno
+        WHERE estado = 'EN_ESPERA'
+          AND fecha_generacion < ?
+        LIMIT 1
+        """;
+
+    String sqlBuscar = """
+        SELECT id_turno
+        FROM turno
+        WHERE estado = 'EN_ESPERA'
+          AND fecha_generacion < ?
+        FOR UPDATE
+        """;
+
+    String sqlCancelar = """
+        UPDATE turno
+        SET estado = 'CANCELADO'
+        WHERE id_turno = ? AND estado = 'EN_ESPERA'
+        """;
+
+    String sqlHistorial = """
+        INSERT INTO historial_turno
+            (id_turno, estado, fecha_hora,
+             id_funcionario, id_ventanilla, comentario)
+        VALUES (?, 'CANCELADO', ?, NULL, NULL, ?)
+        """;
+
+    Date fechaHoy = Date.valueOf(hoy);
+
+    try (Connection conexion = DatabaseConfig.obtenerConexion()) {
+
+        try (PreparedStatement ps = conexion.prepareStatement(sqlHay)) {
+            ps.setDate(1, fechaHoy);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return 0;
+                }
+            }
+        }
+
+        conexion.setAutoCommit(false);
+
+        try {
+            List<Integer> ids = new ArrayList<>();
+
+            try (PreparedStatement ps =
+                         conexion.prepareStatement(sqlBuscar)) {
+
+                ps.setDate(1, fechaHoy);
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        ids.add(rs.getInt("id_turno"));
+                    }
+                }
+            }
+
+            Timestamp ahora = Timestamp.valueOf(LocalDateTime.now());
+            int cancelados = 0;
+
+            try (PreparedStatement cancelar =
+                         conexion.prepareStatement(sqlCancelar);
+                 PreparedStatement historial =
+                         conexion.prepareStatement(sqlHistorial)) {
+
+                for (int id : ids) {
+                    cancelar.setInt(1, id);
+
+                    if (cancelar.executeUpdate() != 1) {
+                        continue;
+                    }
+
+                    historial.setInt(1, id);
+                    historial.setTimestamp(2, ahora);
+                    historial.setString(3,
+                        "Cancelado automáticamente: no fue atendido "
+                        + "el día en que se generó");
+                    historial.executeUpdate();
+
+                    cancelados++;
+                }
+            }
+
+            conexion.commit();
+            return cancelados;
+
+        } catch (SQLException | RuntimeException e) {
+            conexion.rollback();
+            throw e;
+        } finally {
+            conexion.setAutoCommit(true);
+        }
+    }
+}
+
 public void cambiarEstadoConHistorial(
         Turno turno,
         EstadoTurno estadoEsperado,

@@ -110,6 +110,24 @@ public synchronized Turno generarTurno(
   
 
 
+/**
+ * Cancela los turnos EN_ESPERA generados antes de hoy.
+ *
+ * @return cantidad de turnos cancelados
+ */
+public int cancelarTurnosDeDiasAnteriores() {
+    try {
+        return turnoDAO.cancelarTurnosPendientesDeDiasAnteriores(
+            java.time.LocalDate.now()
+        );
+    } catch (SQLException e) {
+        throw new IllegalStateException(
+            "No se pudieron cancelar los turnos de días anteriores.",
+            e
+        );
+    }
+}
+
 public synchronized Turno llamarSiguienteTurno(
         int idFuncionario,
         int idVentanilla) {
@@ -117,6 +135,16 @@ public synchronized Turno llamarSiguienteTurno(
     if (idFuncionario <= 0 || idVentanilla <= 0) {
         throw new IllegalArgumentException(
             "El funcionario y la ventanilla deben ser válidos."
+        );
+    }
+
+    // Red de seguridad: si el servidor estuvo encendido pasada la
+    // medianoche, nunca se llama un turno de un día anterior.
+    try {
+        cancelarTurnosDeDiasAnteriores();
+    } catch (RuntimeException e) {
+        System.err.println(
+            "No se pudieron cancelar turnos antiguos: " + e.getMessage()
         );
     }
 
