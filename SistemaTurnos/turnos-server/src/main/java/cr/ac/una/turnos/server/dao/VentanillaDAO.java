@@ -121,7 +121,7 @@ public class VentanillaDAO {
             UPDATE ventanilla
             SET estado = 'DISPONIBLE'
             WHERE id_ventanilla = ?
-              AND estado = 'OCUPADA'
+              AND estado IN ('OCUPADA', 'NO_DISPONIBLE')
             """;
 
         try (Connection conexion = DatabaseConfig.obtenerConexion()) {
@@ -196,6 +196,124 @@ public class VentanillaDAO {
     return resultado;
 }
 
+/**
+ * El operador marca su ventanilla como no disponible (por ejemplo, para
+ * un descanso) o vuelve a ponerla disponible.
+ *
+ * OCUPADA <-> NO_DISPONIBLE. Mientras está NO_DISPONIBLE no puede llamar
+ * turnos (lo valida TurnoDAO.llamarSiguienteTurno). No se permite
+ * pausar con un turno LLAMADO o EN_ATENCION: primero se debe terminar.
+ *
+ * Se bloquea la fila de la ventanilla, igual que al llamar un turno, así
+ * que pausar y llamar al mismo tiempo se ejecutan en serie.
+ *
+ * @return el estado en que quedó la ventanilla
+ */
+public EstadoVentanilla cambiarDisponibilidad(
+        int idVentanilla,
+        boolean disponible) throws SQLException {
+
+    String sqlBloquear = """
+        SELECT estado
+        FROM ventanilla
+        WHERE id_ventanilla = ?
+        FOR UPDATE
+        """;
+
+    String sqlTurnoActivo = """
+        SELECT codigo
+        FROM turno
+        WHERE id_ventanilla = ?
+          AND estado IN ('LLAMADO', 'EN_ATENCION')
+        LIMIT 1
+        """;
+
+    String sqlActualizar = """
+        UPDATE ventanilla
+        SET estado = ?
+        WHERE id_ventanilla = ?
+        """;
+
+    EstadoVentanilla destino = disponible
+            ? EstadoVentanilla.OCUPADA
+            : EstadoVentanilla.NO_DISPONIBLE;
+
+    try (Connection conexion = DatabaseConfig.obtenerConexion()) {
+
+        conexion.setAutoCommit(false);
+
+        try {
+            EstadoVentanilla actual;
+
+            try (PreparedStatement ps =
+                         conexion.prepareStatement(sqlBloquear)) {
+
+                ps.setInt(1, idVentanilla);
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        throw new IllegalArgumentException(
+                            "La ventanilla indicada no existe."
+                        );
+                    }
+
+                    actual = EstadoVentanilla.valueOf(
+                        rs.getString("estado")
+                    );
+                }
+            }
+
+            if (actual != EstadoVentanilla.OCUPADA
+                    && actual != EstadoVentanilla.NO_DISPONIBLE) {
+                throw new IllegalStateException(
+                    "La ventanilla no está en uso por un operador."
+                );
+            }
+
+            if (actual == destino) {
+                conexion.commit();
+                return actual;
+            }
+
+            if (!disponible) {
+                try (PreparedStatement ps =
+                             conexion.prepareStatement(sqlTurnoActivo)) {
+
+                    ps.setInt(1, idVentanilla);
+
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            throw new IllegalStateException(
+                                "No puede marcarse como no disponible "
+                                + "mientras tiene el turno "
+                                + rs.getString("codigo")
+                                + " en proceso. Finalícelo primero."
+                            );
+                        }
+                    }
+                }
+            }
+
+            try (PreparedStatement ps =
+                         conexion.prepareStatement(sqlActualizar)) {
+
+                ps.setString(1, destino.name());
+                ps.setInt(2, idVentanilla);
+                ps.executeUpdate();
+            }
+
+            conexion.commit();
+            return destino;
+
+        } catch (SQLException | RuntimeException e) {
+            conexion.rollback();
+            throw e;
+        } finally {
+            conexion.setAutoCommit(true);
+        }
+    }
+}
+
 public void cambiarEstado(
         int idVentanilla,
         EstadoVentanilla nuevoEstado) throws SQLException {
@@ -204,9 +322,11 @@ public void cambiarEstado(
         throw new IllegalArgumentException("Debe indicar un estado.");
     }
 
-    if (nuevoEstado == EstadoVentanilla.OCUPADA) {
+    if (nuevoEstado == EstadoVentanilla.OCUPADA
+            || nuevoEstado == EstadoVentanilla.NO_DISPONIBLE) {
         throw new IllegalArgumentException(
-            "El estado OCUPADA se asigna automáticamente al iniciar una sesión de operador."
+            "Los estados OCUPADA y NO_DISPONIBLE los controla el "
+            + "operador que usa la ventanilla."
         );
     }
 
@@ -214,7 +334,7 @@ public void cambiarEstado(
         UPDATE ventanilla
         SET estado = ?
         WHERE id_ventanilla = ?
-          AND estado <> 'OCUPADA'
+          AND estado NOT IN ('OCUPADA', 'NO_DISPONIBLE')
         """;
 
     try (Connection conexion = DatabaseConfig.obtenerConexion();
@@ -225,7 +345,7 @@ public void cambiarEstado(
 
         if (ps.executeUpdate() != 1) {
             throw new IllegalStateException(
-                "No se encontró la ventanilla o está ocupada."
+                "No se encontró la ventanilla o está en uso por un operador."
             );
         }
     }

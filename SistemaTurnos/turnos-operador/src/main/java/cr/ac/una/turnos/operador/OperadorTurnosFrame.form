@@ -39,6 +39,7 @@
                       <EmptySpace max="-2" attributes="0"/>
                       <Component id="botonFinalizar" pref="250" max="32767" attributes="0"/>
                   </Group>
+                  <Component id="botonDisponibilidad" max="32767" attributes="0"/>
               </Group>
               <EmptySpace max="-2" attributes="0"/>
           </Group>
@@ -63,6 +64,8 @@
                   <Component id="botonIniciar" min="-2" pref="51" max="-2" attributes="0"/>
                   <Component id="botonFinalizar" min="-2" pref="51" max="-2" attributes="0"/>
               </Group>
+              <EmptySpace max="-2" attributes="0"/>
+              <Component id="botonDisponibilidad" min="-2" pref="41" max="-2" attributes="0"/>
               <EmptySpace max="-2" attributes="0"/>
           </Group>
       </Group>
@@ -140,6 +143,14 @@
       </Properties>
       <Events>
         <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="botonVolverLlamarActionPerformed"/>
+      </Events>
+    </Component>
+    <Component class="javax.swing.JButton" name="botonDisponibilidad">
+      <Properties>
+        <Property name="text" type="java.lang.String" value="Marcar ventanilla como no disponible"/>
+      </Properties>
+      <Events>
+        <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="botonDisponibilidadActionPerformed"/>
       </Events>
     </Component>
   </SubComponents>

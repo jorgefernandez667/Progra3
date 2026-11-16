@@ -16,6 +16,7 @@ import cr.ac.una.turnos.common.network.TcpSessionClient;
 
 public class OperadorTurnosFrame extends javax.swing.JFrame {
 private TurnoDTO turnoActual;
+private boolean ventanillaDisponible = true;
     
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(OperadorTurnosFrame.class.getName());
 
@@ -85,6 +86,7 @@ private final DefaultTableModel modeloTabla =
         botonIniciar = new javax.swing.JButton();
         botonFinalizar = new javax.swing.JButton();
         botonVolverLlamar = new javax.swing.JButton();
+        botonDisponibilidad = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -127,6 +129,9 @@ private final DefaultTableModel modeloTabla =
         botonVolverLlamar.setText("Volver a llamar");
         botonVolverLlamar.addActionListener(this::botonVolverLlamarActionPerformed);
 
+        botonDisponibilidad.setText("Marcar ventanilla como no disponible");
+        botonDisponibilidad.addActionListener(this::botonDisponibilidadActionPerformed);
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -144,7 +149,8 @@ private final DefaultTableModel modeloTabla =
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(botonIniciar, javax.swing.GroupLayout.DEFAULT_SIZE, 250, Short.MAX_VALUE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(botonFinalizar, javax.swing.GroupLayout.DEFAULT_SIZE, 250, Short.MAX_VALUE)))
+                        .addComponent(botonFinalizar, javax.swing.GroupLayout.DEFAULT_SIZE, 250, Short.MAX_VALUE))
+                    .addComponent(botonDisponibilidad, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
@@ -164,6 +170,8 @@ private final DefaultTableModel modeloTabla =
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(botonIniciar, javax.swing.GroupLayout.PREFERRED_SIZE, 51, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(botonFinalizar, javax.swing.GroupLayout.PREFERRED_SIZE, 51, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(botonDisponibilidad, javax.swing.GroupLayout.PREFERRED_SIZE, 41, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
         );
 
@@ -363,6 +371,35 @@ private final DefaultTableModel modeloTabla =
         );
     }
     }//GEN-LAST:event_botonVolverLlamarActionPerformed
+
+    private void botonDisponibilidadActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_botonDisponibilidadActionPerformed
+
+    boolean nuevoValor = !ventanillaDisponible;
+
+    try {
+        Response respuesta = cliente.enviarSolicitud(
+                TipoMensaje.CAMBIAR_DISPONIBILIDAD,
+                Map.of("disponible", nuevoValor)
+        );
+
+        if (!respuesta.isExitoso()) {
+            throw new IllegalStateException(respuesta.getMensaje());
+        }
+
+        ventanillaDisponible = nuevoValor;
+        actualizarEstadoBotones();
+
+        JOptionPane.showMessageDialog(this, respuesta.getMensaje());
+
+    } catch (Exception e) {
+        JOptionPane.showMessageDialog(
+                this,
+                e.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE
+        );
+    }
+    }//GEN-LAST:event_botonDisponibilidadActionPerformed
 
     /**
      * @param args the command line arguments
@@ -582,13 +619,28 @@ private void actualizarEstadoBotones() {
     boolean enAtencion = hayTurno
             && turnoActual.getEstado() == EstadoTurno.EN_ATENCION;
 
-    botonLlamar.setEnabled(!hayTurno);
+    etiquetaTitulo.setText(
+            "OPERADOR: " + funcionario.getNombreCompleto()
+            + (ventanillaDisponible ? "" : "  —  NO DISPONIBLE")
+    );
+
+    botonDisponibilidad.setText(
+            ventanillaDisponible
+                    ? "Marcar ventanilla como no disponible"
+                    : "Volver a estar disponible"
+    );
+
+    // No se puede pausar con un turno en proceso.
+    botonDisponibilidad.setEnabled(!hayTurno);
+
+    botonLlamar.setEnabled(!hayTurno && ventanillaDisponible);
     botonVolverLlamar.setEnabled(estaLlamado);
     botonIniciar.setEnabled(estaLlamado);
     botonFinalizar.setEnabled(enAtencion);
 }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton botonDisponibilidad;
     private javax.swing.JButton botonFinalizar;
     private javax.swing.JButton botonIniciar;
     private javax.swing.JButton botonLlamar;

@@ -649,10 +649,12 @@ private String formatoFechaHora(Object valor) {
         String estadoActual =
                 modeloVentanillas.getValueAt(fila, 2).toString();
 
-        if ("OCUPADA".equals(estadoActual)) {
+        if ("OCUPADA".equals(estadoActual)
+                || "NO_DISPONIBLE".equals(estadoActual)) {
             JOptionPane.showMessageDialog(
                     this,
-                    "No se puede cambiar el estado de una ventanilla ocupada.",
+                    "No se puede cambiar el estado de una ventanilla "
+                    + "que está en uso por un operador.",
                     "Operación no permitida",
                     JOptionPane.WARNING_MESSAGE
             );
