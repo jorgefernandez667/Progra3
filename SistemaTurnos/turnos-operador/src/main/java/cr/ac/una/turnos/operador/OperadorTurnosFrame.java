@@ -84,6 +84,7 @@ private final DefaultTableModel modeloTabla =
         botonLlamar = new javax.swing.JButton();
         botonIniciar = new javax.swing.JButton();
         botonFinalizar = new javax.swing.JButton();
+        botonVolverLlamar = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -123,35 +124,27 @@ private final DefaultTableModel modeloTabla =
         botonFinalizar.setText("Finalizar atención");
         botonFinalizar.addActionListener(this::botonFinalizarActionPerformed);
 
+        botonVolverLlamar.setText("Volver a llamar");
+        botonVolverLlamar.addActionListener(this::botonVolverLlamarActionPerformed);
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                        .addComponent(etiquetaTurnoActual, javax.swing.GroupLayout.PREFERRED_SIZE, 174, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(230, 230, 230))
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                        .addComponent(botonLlamar, javax.swing.GroupLayout.PREFERRED_SIZE, 279, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(181, 181, 181))))
             .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jScrollPane1)
+                    .addComponent(etiquetaTitulo, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(etiquetaTurnoActual, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addGroup(layout.createSequentialGroup()
-                        .addGap(152, 152, 152)
-                        .addComponent(etiquetaTitulo, javax.swing.GroupLayout.PREFERRED_SIZE, 336, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addGap(0, 150, Short.MAX_VALUE))
+                        .addComponent(botonLlamar, javax.swing.GroupLayout.DEFAULT_SIZE, 250, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(botonVolverLlamar, javax.swing.GroupLayout.DEFAULT_SIZE, 250, Short.MAX_VALUE))
                     .addGroup(layout.createSequentialGroup()
-                        .addGap(346, 346, 346)
-                        .addComponent(botonFinalizar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                    .addGroup(layout.createSequentialGroup()
-                        .addContainerGap()
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(layout.createSequentialGroup()
-                                .addComponent(botonIniciar, javax.swing.GroupLayout.PREFERRED_SIZE, 300, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addGap(0, 0, Short.MAX_VALUE))
-                            .addComponent(jScrollPane1))))
+                        .addComponent(botonIniciar, javax.swing.GroupLayout.DEFAULT_SIZE, 250, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(botonFinalizar, javax.swing.GroupLayout.DEFAULT_SIZE, 250, Short.MAX_VALUE)))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
@@ -162,13 +155,15 @@ private final DefaultTableModel modeloTabla =
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(etiquetaTurnoActual)
                 .addGap(18, 18, 18)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 162, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 162, Short.MAX_VALUE)
                 .addGap(18, 18, 18)
-                .addComponent(botonLlamar, javax.swing.GroupLayout.PREFERRED_SIZE, 51, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 12, Short.MAX_VALUE)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(botonIniciar, javax.swing.GroupLayout.DEFAULT_SIZE, 51, Short.MAX_VALUE)
-                    .addComponent(botonFinalizar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(botonLlamar, javax.swing.GroupLayout.PREFERRED_SIZE, 51, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(botonVolverLlamar, javax.swing.GroupLayout.PREFERRED_SIZE, 51, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(botonIniciar, javax.swing.GroupLayout.PREFERRED_SIZE, 51, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(botonFinalizar, javax.swing.GroupLayout.PREFERRED_SIZE, 51, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addContainerGap())
         );
 
@@ -322,6 +317,52 @@ private final DefaultTableModel modeloTabla =
         );
     }
     }//GEN-LAST:event_botonFinalizarActionPerformed
+
+    private void botonVolverLlamarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_botonVolverLlamarActionPerformed
+
+    if (turnoActual == null
+            || turnoActual.getEstado() != EstadoTurno.LLAMADO) {
+
+        JOptionPane.showMessageDialog(
+                this,
+                "Solo se puede volver a llamar un turno que ya fue "
+                + "llamado y aún no inició su atención.",
+                "Aviso",
+                JOptionPane.WARNING_MESSAGE
+        );
+        return;
+    }
+
+    try {
+        Response respuesta = cliente.enviarSolicitud(
+                TipoMensaje.RECLAMAR_TURNO,
+                Map.of("idTurno", turnoActual.getId())
+        );
+
+        if (!respuesta.isExitoso()) {
+            throw new IllegalStateException(respuesta.getMensaje());
+        }
+
+        if (respuesta.getDatos() != null) {
+            turnoActual = convertirTurno(respuesta.getDatos());
+        }
+
+        actualizarEstadoBotones();
+
+        JOptionPane.showMessageDialog(
+                this,
+                "Se volvió a llamar al turno " + turnoActual.getCodigo()
+        );
+
+    } catch (Exception e) {
+        JOptionPane.showMessageDialog(
+                this,
+                e.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE
+        );
+    }
+    }//GEN-LAST:event_botonVolverLlamarActionPerformed
 
     /**
      * @param args the command line arguments
@@ -542,6 +583,7 @@ private void actualizarEstadoBotones() {
             && turnoActual.getEstado() == EstadoTurno.EN_ATENCION;
 
     botonLlamar.setEnabled(!hayTurno);
+    botonVolverLlamar.setEnabled(estaLlamado);
     botonIniciar.setEnabled(estaLlamado);
     botonFinalizar.setEnabled(enAtencion);
 }
@@ -550,6 +592,7 @@ private void actualizarEstadoBotones() {
     private javax.swing.JButton botonFinalizar;
     private javax.swing.JButton botonIniciar;
     private javax.swing.JButton botonLlamar;
+    private javax.swing.JButton botonVolverLlamar;
     private javax.swing.JLabel etiquetaTitulo;
     private javax.swing.JLabel etiquetaTurnoActual;
     private javax.swing.JScrollPane jScrollPane1;
