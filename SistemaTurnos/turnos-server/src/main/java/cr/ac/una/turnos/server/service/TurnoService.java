@@ -320,8 +320,48 @@ public synchronized List<Turno> consultarUltimosTurnosLlamados()
 private final cr.ac.una.turnos.server.dao.ServicioDAO servicioDAO =
         new cr.ac.una.turnos.server.dao.ServicioDAO();
 
+/** Todos los servicios (administración). */
 public List<Servicio> consultarServicios() throws SQLException {
     return servicioDAO.obtenerTodos();
+}
+
+/** Solo los servicios activos: los que se ofrecen al generar turnos. */
+public List<Servicio> consultarServiciosActivos() throws SQLException {
+    return servicioDAO.obtenerTodos().stream()
+            .filter(Servicio::isActivo)
+            .toList();
+}
+
+public int crearServicio(String prefijo, String nombre)
+        throws SQLException {
+
+    if (prefijo == null || !prefijo.matches("[A-Z]")) {
+        throw new IllegalArgumentException(
+            "El prefijo debe ser una sola letra de la A a la Z."
+        );
+    }
+
+    return servicioDAO.crear(prefijo, validarNombreServicio(nombre));
+}
+
+public void actualizarServicio(int idServicio, String nombre,
+        boolean activo) throws SQLException {
+
+    servicioDAO.actualizar(
+        idServicio, validarNombreServicio(nombre), activo
+    );
+}
+
+private String validarNombreServicio(String nombre) {
+    String limpio = nombre == null ? "" : nombre.trim();
+
+    if (limpio.length() < 3 || limpio.length() > 50) {
+        throw new IllegalArgumentException(
+            "El nombre del servicio debe tener entre 3 y 50 caracteres."
+        );
+    }
+
+    return limpio;
 }
 
 public Turno generarTurnoTCP(
@@ -333,6 +373,12 @@ public Turno generarTurnoTCP(
     if (servicio == null) {
         throw new IllegalArgumentException(
             "El servicio seleccionado no existe."
+        );
+    }
+
+    if (!servicio.isActivo()) {
+        throw new IllegalArgumentException(
+            "El servicio seleccionado no está disponible."
         );
     }
 

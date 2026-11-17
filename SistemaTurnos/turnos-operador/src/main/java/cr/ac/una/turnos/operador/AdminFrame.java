@@ -37,6 +37,13 @@ public class AdminFrame extends JFrame {
     private final JButton botonCambiarEstado;
     private final JButton botonServicios;
 
+    private final DefaultTableModel modeloServicios;
+    private final JTable tablaServicios;
+    private final JButton botonActualizarServicios;
+    private final JButton botonNuevoServicio;
+    private final JButton botonEditarServicio;
+    private final JButton botonActivarServicio;
+
     /** Servicios existentes (id, código, nombre) y los de cada ventanilla. */
     private List<Map<?, ?>> serviciosExistentes = new java.util.ArrayList<>();
     private final Map<Integer, List<Integer>> serviciosDeVentanilla =
@@ -99,6 +106,12 @@ public class AdminFrame extends JFrame {
         modeloUsuarios = crearModelo();
         tablaUsuarios = new JTable(modeloUsuarios);
         tablaUsuarios.setSelectionMode(
+                ListSelectionModel.SINGLE_SELECTION
+        );
+
+        modeloServicios = crearModelo();
+        tablaServicios = new JTable(modeloServicios);
+        tablaServicios.setSelectionMode(
                 ListSelectionModel.SINGLE_SELECTION
         );
 
@@ -191,6 +204,30 @@ public class AdminFrame extends JFrame {
 
         pestañas.addTab("Ventanillas", panelVentanillas);
         pestañas.addTab("Usuarios", panelUsuarios);
+
+        // Pestaña de servicios
+        JPanel panelServicios = new JPanel(new BorderLayout(10, 10));
+        panelServicios.setBorder(
+                BorderFactory.createEmptyBorder(15, 15, 15, 15)
+        );
+        panelServicios.add(
+                new JScrollPane(tablaServicios),
+                BorderLayout.CENTER
+        );
+
+        botonActualizarServicios = new JButton("Actualizar");
+        botonNuevoServicio = new JButton("Nuevo servicio");
+        botonEditarServicio = new JButton("Cambiar nombre");
+        botonActivarServicio = new JButton("Activar / desactivar");
+
+        JPanel botonesServicios = new JPanel(new FlowLayout());
+        botonesServicios.add(botonActualizarServicios);
+        botonesServicios.add(botonNuevoServicio);
+        botonesServicios.add(botonEditarServicio);
+        botonesServicios.add(botonActivarServicio);
+        panelServicios.add(botonesServicios, BorderLayout.SOUTH);
+
+        pestañas.addTab("Servicios", panelServicios);
         pestañas.addTab("Reportes", panelReportes);
 
         JButton botonCerrarSesion = new JButton("Cerrar sesión");
@@ -208,6 +245,14 @@ public class AdminFrame extends JFrame {
         );
 
         botonServicios.addActionListener(e -> configurarServicios());
+
+        botonActualizarServicios.addActionListener(
+                e -> cargarServicios());
+        botonNuevoServicio.addActionListener(e -> crearServicio());
+        botonEditarServicio.addActionListener(
+                e -> cambiarNombreServicio());
+        botonActivarServicio.addActionListener(
+                e -> alternarServicio());
 
         botonCambiarEstado.addActionListener(
                 e -> cambiarEstado()
@@ -243,6 +288,7 @@ public class AdminFrame extends JFrame {
         });
 
         cargarVentanillas();
+        cargarServicios();
     }
 
     private DefaultTableModel crearModelo() {
@@ -314,11 +360,169 @@ public class AdminFrame extends JFrame {
         }
     }
 
+    private void cargarServicios() {
+
+        try {
+            cargarServiciosExistentes();
+
+            modeloServicios.setColumnIdentifiers(
+                    new Object[]{"ID", "Código", "Nombre", "Estado"}
+            );
+            modeloServicios.setRowCount(0);
+
+            for (Map<?, ?> servicio : serviciosExistentes) {
+                modeloServicios.addRow(new Object[]{
+                    servicio.get("id"),
+                    servicio.get("codigo"),
+                    servicio.get("nombre"),
+                    Boolean.TRUE.equals(servicio.get("activo"))
+                            ? "ACTIVO" : "INACTIVO"
+                });
+            }
+
+        } catch (Exception e) {
+            mostrarError("No fue posible consultar los servicios.", e);
+        }
+    }
+
+    private void crearServicio() {
+
+        JTextField campoPrefijo = new JTextField(3);
+        JTextField campoNombre = new JTextField(20);
+
+        JPanel panel = new JPanel(new GridLayout(0, 2, 6, 6));
+        panel.add(new JLabel("Prefijo (una letra):"));
+        panel.add(campoPrefijo);
+        panel.add(new JLabel("Nombre:"));
+        panel.add(campoNombre);
+
+        int opcion = JOptionPane.showConfirmDialog(
+                this, panel, "Nuevo servicio",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (opcion != JOptionPane.OK_OPTION) {
+            return;
+        }
+
+        enviarCambioServicio(
+                TipoMensaje.CREAR_SERVICIO,
+                Map.of(
+                        "prefijo", campoPrefijo.getText().trim(),
+                        "nombre", campoNombre.getText().trim()
+                )
+        );
+    }
+
+    private void cambiarNombreServicio() {
+
+        int fila = tablaServicios.getSelectedRow();
+
+        if (fila < 0) {
+            avisarSeleccionarServicio();
+            return;
+        }
+
+        Object nuevo = JOptionPane.showInputDialog(
+                this,
+                "Nuevo nombre del servicio "
+                        + modeloServicios.getValueAt(fila, 1) + ":",
+                "Cambiar nombre",
+                JOptionPane.PLAIN_MESSAGE,
+                null,
+                null,
+                modeloServicios.getValueAt(fila, 2)
+        );
+
+        if (nuevo == null) {
+            return;
+        }
+
+        enviarCambioServicio(
+                TipoMensaje.ACTUALIZAR_SERVICIO,
+                Map.of(
+                        "idServicio", idServicioSeleccionado(fila),
+                        "nombre", nuevo.toString().trim(),
+                        "activo", "ACTIVO".equals(
+                                modeloServicios.getValueAt(fila, 3))
+                )
+        );
+    }
+
+    private void alternarServicio() {
+
+        int fila = tablaServicios.getSelectedRow();
+
+        if (fila < 0) {
+            avisarSeleccionarServicio();
+            return;
+        }
+
+        boolean activoAhora = "ACTIVO".equals(
+                modeloServicios.getValueAt(fila, 3));
+
+        int opcion = JOptionPane.showConfirmDialog(
+                this,
+                activoAhora
+                        ? "¿Desactivar el servicio "
+                        + modeloServicios.getValueAt(fila, 2) + "?\n"
+                        + "Dejará de ofrecerse para nuevos turnos; los que "
+                        + "ya están en espera se siguen atendiendo."
+                        : "¿Activar el servicio "
+                        + modeloServicios.getValueAt(fila, 2) + "?",
+                "Confirmar",
+                JOptionPane.YES_NO_OPTION
+        );
+
+        if (opcion != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        enviarCambioServicio(
+                TipoMensaje.ACTUALIZAR_SERVICIO,
+                Map.of(
+                        "idServicio", idServicioSeleccionado(fila),
+                        "nombre", modeloServicios.getValueAt(fila, 2)
+                                .toString(),
+                        "activo", !activoAhora
+                )
+        );
+    }
+
+    private int idServicioSeleccionado(int fila) {
+        return Integer.parseInt(
+                modeloServicios.getValueAt(fila, 0).toString());
+    }
+
+    private void avisarSeleccionarServicio() {
+        JOptionPane.showMessageDialog(
+                this, "Seleccione un servicio.", "Servicios",
+                JOptionPane.WARNING_MESSAGE
+        );
+    }
+
+    private void enviarCambioServicio(TipoMensaje tipo, Object datos) {
+
+        try {
+            Response respuesta = cliente.enviarSolicitud(tipo, datos);
+
+            if (!respuesta.isExitoso()) {
+                throw new IllegalStateException(respuesta.getMensaje());
+            }
+
+            cargarServicios();
+            cargarVentanillas();
+
+        } catch (Exception e) {
+            mostrarError("No fue posible guardar el servicio.", e);
+        }
+    }
+
     private void cargarServiciosExistentes() throws Exception {
 
         Response respuesta = cliente.enviarSolicitud(
                 TipoMensaje.OBTENER_SERVICIOS,
-                null
+                Map.of("todos", true)
         );
 
         if (!respuesta.isExitoso()) {
