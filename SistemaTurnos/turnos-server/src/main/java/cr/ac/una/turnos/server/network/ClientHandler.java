@@ -183,6 +183,9 @@ public void run() {
 
     case CAMBIAR_DISPONIBILIDAD:
         return cambiarDisponibilidad(request);
+
+    case ASIGNAR_SERVICIOS_VENTANILLA:
+        return asignarServiciosVentanilla(request);
         
     case OBTENER_USUARIOS:
         return obtenerUsuarios(request);
@@ -433,7 +436,7 @@ private Response iniciarSesion(Request request)
             request.getIdSolicitud(),
             TipoMensaje.SOLICITAR_SIGUIENTE_TURNO,
             true,
-            "No hay turnos pendientes.",
+            "No hay turnos pendientes para esta ventanilla.",
             null
         );
     }
@@ -691,7 +694,11 @@ private Response obtenerTurnosPendientes(Request request)
         );
     }
 
-    List<Turno> turnos = turnoService.consultarTurnosPendientes();
+    // Solo los turnos de los servicios que atiende la ventanilla de la
+    // sesión (sin configuración, todos).
+    List<Turno> turnos = turnoService.consultarTurnosPendientes(
+        sesionService.getIdVentanillaActual()
+    );
 
     List<TurnoDTO> turnosDTO = turnos.stream()
         .map(this::convertirTurno)
@@ -769,14 +776,23 @@ private Response obtenerVentanillas(Request request)
 
     List<Ventanilla> ventanillas = ventanillaDAO.obtenerTodas();
 
+    Map<Integer, List<Integer>> serviciosPorVentanilla =
+        ventanillaDAO.obtenerServiciosPorVentanilla();
+
     List<VentanillaDTO> datos = ventanillas.stream()
-        .map(v -> new VentanillaDTO(
-            v.getId(),
-            v.getNombre(),
-            v.getEstado(),
-            0,
-            "Sin asignación registrada"
-        ))
+        .map(v -> {
+            VentanillaDTO dto = new VentanillaDTO(
+                v.getId(),
+                v.getNombre(),
+                v.getEstado(),
+                0,
+                "Sin asignación registrada"
+            );
+            dto.setIdServicios(
+                serviciosPorVentanilla.get(v.getId())
+            );
+            return dto;
+        })
         .toList();
 
     return new Response(
@@ -831,6 +847,59 @@ private Response cambiarDisponibilidad(Request request)
             ? "La ventanilla volvió a estar disponible."
             : "La ventanilla quedó marcada como no disponible.",
         Map.of("estado", estado.name())
+    );
+}
+
+private Response asignarServiciosVentanilla(Request request)
+        throws SQLException {
+
+    validarAdministrador();
+
+    if (request.getDatos() == null) {
+        throw new IllegalArgumentException(
+            "Faltan los datos de la ventanilla."
+        );
+    }
+
+    Map<String, Object> datos = mapper.convertValue(
+        request.getDatos(),
+        new TypeReference<Map<String, Object>>() {}
+    );
+
+    Object valorId = datos.get("idVentanilla");
+    Object valorServicios = datos.get("idServicios");
+
+    if (!(valorId instanceof Number)
+            || !(valorServicios instanceof List<?> lista)) {
+        throw new IllegalArgumentException(
+            "Debe indicar la ventanilla y la lista de servicios."
+        );
+    }
+
+    List<Integer> idServicios = new java.util.ArrayList<>();
+
+    for (Object elemento : lista) {
+        if (!(elemento instanceof Number numero)) {
+            throw new IllegalArgumentException(
+                "La lista de servicios solo puede contener números."
+            );
+        }
+        idServicios.add(numero.intValue());
+    }
+
+    ventanillaDAO.asignarServicios(
+        ((Number) valorId).intValue(),
+        idServicios
+    );
+
+    return new Response(
+        request.getIdSolicitud(),
+        TipoMensaje.ASIGNAR_SERVICIOS_VENTANILLA,
+        true,
+        idServicios.isEmpty()
+            ? "La ventanilla atenderá todos los servicios."
+            : "Servicios de la ventanilla actualizados.",
+        null
     );
 }
 
