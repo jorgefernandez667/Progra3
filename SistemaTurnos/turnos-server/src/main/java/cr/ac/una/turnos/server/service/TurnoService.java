@@ -267,6 +267,12 @@ public synchronized void iniciarAtencionTurno(Turno turno) {
         throws SQLException {
     return turnoDAO.obtenerTurnosPendientes();
 }
+
+/** Pendientes de los servicios que atiende una ventanilla. */
+public synchronized List<Turno> consultarTurnosPendientes(
+        Integer idVentanilla) throws SQLException {
+    return turnoDAO.obtenerTurnosPendientes(idVentanilla);
+}
   
 
 public synchronized void finalizarAtencionTurno(Turno turno) {

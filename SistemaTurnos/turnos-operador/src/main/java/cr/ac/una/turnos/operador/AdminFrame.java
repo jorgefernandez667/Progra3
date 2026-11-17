@@ -35,6 +35,12 @@ public class AdminFrame extends JFrame {
 
     private final JButton botonActualizarVentanillas;
     private final JButton botonCambiarEstado;
+    private final JButton botonServicios;
+
+    /** Servicios existentes (id, código, nombre) y los de cada ventanilla. */
+    private List<Map<?, ?>> serviciosExistentes = new java.util.ArrayList<>();
+    private final Map<Integer, List<Integer>> serviciosDeVentanilla =
+            new java.util.HashMap<>();
     private final JButton botonActualizarUsuarios;
     private final JButton botonCrearOperador;
     private final JButton botonGenerarReporte;
@@ -120,6 +126,9 @@ public class AdminFrame extends JFrame {
         botonesVentanillas.add(botonActualizarVentanillas);
         botonesVentanillas.add(botonCambiarEstado);
 
+        botonServicios = new JButton("Servicios que atiende");
+        botonesVentanillas.add(botonServicios);
+
         panelVentanillas.add(botonesVentanillas, BorderLayout.SOUTH);
 
         // Pestaña de usuarios
@@ -198,6 +207,8 @@ public class AdminFrame extends JFrame {
                 e -> cargarVentanillas()
         );
 
+        botonServicios.addActionListener(e -> configurarServicios());
+
         botonCambiarEstado.addActionListener(
                 e -> cambiarEstado()
         );
@@ -247,8 +258,11 @@ public class AdminFrame extends JFrame {
 
         botonActualizarVentanillas.setEnabled(false);
         botonCambiarEstado.setEnabled(false);
+        botonServicios.setEnabled(false);
 
         try {
+            cargarServiciosExistentes();
+
             Response respuesta = cliente.enviarSolicitud(
                     TipoMensaje.OBTENER_VENTANILLAS,
                     null
@@ -259,9 +273,11 @@ public class AdminFrame extends JFrame {
             }
 
             modeloVentanillas.setColumnIdentifiers(
-                    new Object[]{"ID", "Ventanilla", "Estado"}
+                    new Object[]{"ID", "Ventanilla", "Estado",
+                        "Servicios que atiende"}
             );
             modeloVentanillas.setRowCount(0);
+            serviciosDeVentanilla.clear();
 
             List<?> ventanillas = (List<?>) respuesta.getDatos();
 
@@ -269,10 +285,22 @@ public class AdminFrame extends JFrame {
                 for (Object elemento : ventanillas) {
                     Map<?, ?> datos = (Map<?, ?>) elemento;
 
+                    List<Integer> idServicios = new java.util.ArrayList<>();
+
+                    if (datos.get("idServicios") instanceof List<?> ids) {
+                        for (Object id : ids) {
+                            idServicios.add(((Number) id).intValue());
+                        }
+                    }
+
+                    int idVentanilla = ((Number) datos.get("id")).intValue();
+                    serviciosDeVentanilla.put(idVentanilla, idServicios);
+
                     modeloVentanillas.addRow(new Object[]{
                         datos.get("id"),
                         datos.get("nombre"),
-                        datos.get("estado")
+                        datos.get("estado"),
+                        describirServicios(idServicios)
                     });
                 }
             }
@@ -282,6 +310,139 @@ public class AdminFrame extends JFrame {
         } finally {
             botonActualizarVentanillas.setEnabled(true);
             botonCambiarEstado.setEnabled(true);
+            botonServicios.setEnabled(true);
+        }
+    }
+
+    private void cargarServiciosExistentes() throws Exception {
+
+        Response respuesta = cliente.enviarSolicitud(
+                TipoMensaje.OBTENER_SERVICIOS,
+                null
+        );
+
+        if (!respuesta.isExitoso()) {
+            throw new IllegalStateException(respuesta.getMensaje());
+        }
+
+        serviciosExistentes = new java.util.ArrayList<>();
+
+        if (respuesta.getDatos() instanceof List<?> lista) {
+            for (Object elemento : lista) {
+                serviciosExistentes.add((Map<?, ?>) elemento);
+            }
+        }
+    }
+
+    /** "Todos" si no hay configuración; si no, los códigos (A, B...). */
+    private String describirServicios(List<Integer> idServicios) {
+
+        if (idServicios.isEmpty()) {
+            return "Todos";
+        }
+
+        StringBuilder texto = new StringBuilder();
+
+        for (Map<?, ?> servicio : serviciosExistentes) {
+            int id = ((Number) servicio.get("id")).intValue();
+
+            if (idServicios.contains(id)) {
+                if (texto.length() > 0) {
+                    texto.append(", ");
+                }
+                texto.append(servicio.get("codigo"))
+                     .append(" - ")
+                     .append(servicio.get("nombre"));
+            }
+        }
+
+        return texto.toString();
+    }
+
+    private void configurarServicios() {
+
+        int fila = tablaVentanillas.getSelectedRow();
+
+        if (fila < 0) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Seleccione una ventanilla.",
+                    "Servicios",
+                    JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        int idVentanilla = Integer.parseInt(
+                modeloVentanillas.getValueAt(fila, 0).toString()
+        );
+        String nombre = modeloVentanillas.getValueAt(fila, 1).toString();
+
+        List<Integer> actuales = serviciosDeVentanilla.getOrDefault(
+                idVentanilla, new java.util.ArrayList<>()
+        );
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.add(new JLabel("Servicios que atiende " + nombre + ":"));
+        panel.add(Box.createVerticalStrut(8));
+
+        List<JCheckBox> casillas = new java.util.ArrayList<>();
+        List<Integer> ids = new java.util.ArrayList<>();
+
+        for (Map<?, ?> servicio : serviciosExistentes) {
+            int id = ((Number) servicio.get("id")).intValue();
+            JCheckBox casilla = new JCheckBox(
+                    servicio.get("codigo") + " - " + servicio.get("nombre"),
+                    actuales.contains(id)
+            );
+            casillas.add(casilla);
+            ids.add(id);
+            panel.add(casilla);
+        }
+
+        panel.add(Box.createVerticalStrut(8));
+        panel.add(new JLabel(
+                "Si no marca ninguno, la ventanilla atiende todos."
+        ));
+
+        int opcion = JOptionPane.showConfirmDialog(
+                this,
+                panel,
+                "Servicios por ventanilla",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (opcion != JOptionPane.OK_OPTION) {
+            return;
+        }
+
+        List<Integer> elegidos = new java.util.ArrayList<>();
+
+        for (int i = 0; i < casillas.size(); i++) {
+            if (casillas.get(i).isSelected()) {
+                elegidos.add(ids.get(i));
+            }
+        }
+
+        try {
+            Response respuesta = cliente.enviarSolicitud(
+                    TipoMensaje.ASIGNAR_SERVICIOS_VENTANILLA,
+                    Map.of(
+                            "idVentanilla", idVentanilla,
+                            "idServicios", elegidos
+                    )
+            );
+
+            if (!respuesta.isExitoso()) {
+                throw new IllegalStateException(respuesta.getMensaje());
+            }
+
+            cargarVentanillas();
+
+        } catch (Exception e) {
+            mostrarError("No fue posible guardar los servicios.", e);
         }
     }
 

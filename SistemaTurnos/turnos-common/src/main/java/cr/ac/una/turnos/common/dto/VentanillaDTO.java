@@ -2,6 +2,9 @@ package cr.ac.una.turnos.common.dto;
 
 import cr.ac.una.turnos.common.enums.EstadoVentanilla;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class VentanillaDTO {
 
     private int id;
@@ -9,6 +12,9 @@ public class VentanillaDTO {
     private EstadoVentanilla estado;
     private int idFuncionario;
     private String nombreFuncionario;
+
+    /** Servicios que atiende; vacío significa que atiende todos. */
+    private List<Integer> idServicios = new ArrayList<>();
 
     public VentanillaDTO() {
     }
@@ -62,5 +68,15 @@ public class VentanillaDTO {
 
     public void setNombreFuncionario(String nombreFuncionario) {
         this.nombreFuncionario = nombreFuncionario;
+    }
+
+    public List<Integer> getIdServicios() {
+        return idServicios;
+    }
+
+    public void setIdServicios(List<Integer> idServicios) {
+        this.idServicios = idServicios == null
+                ? new ArrayList<>()
+                : idServicios;
     }
 }

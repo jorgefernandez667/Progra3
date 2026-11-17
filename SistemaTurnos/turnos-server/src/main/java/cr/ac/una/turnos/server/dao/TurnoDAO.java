@@ -334,6 +334,26 @@ public class TurnoDAO {
 
 
 public List<Turno> obtenerTurnosPendientes() throws SQLException {
+    return obtenerTurnosPendientes(null);
+}
+
+/**
+ * Turnos en espera. Si se indica una ventanilla, solo los de los
+ * servicios que ella atiende (sin configuración, todos).
+ */
+public List<Turno> obtenerTurnosPendientes(Integer idVentanilla)
+        throws SQLException {
+
+    String filtroVentanilla = idVentanilla == null ? "" : """
+          AND (NOT EXISTS (
+                   SELECT 1
+                   FROM ventanilla_servicio vs0
+                   WHERE vs0.id_ventanilla = ?)
+               OR t.id_servicio IN (
+                   SELECT vs.id_servicio
+                   FROM ventanilla_servicio vs
+                   WHERE vs.id_ventanilla = ?))
+        """;
 
     String sql = """
         SELECT t.id_turno, t.codigo, t.estado,
@@ -349,14 +369,21 @@ public List<Turno> obtenerTurnosPendientes() throws SQLException {
         INNER JOIN prioridad p
             ON t.id_prioridad = p.id_prioridad
         WHERE t.estado = 'EN_ESPERA'
+        """ + filtroVentanilla + """
         ORDER BY t.hora_generacion ASC, t.id_turno ASC
         """;
 
     List<Turno> resultado = new ArrayList<>();
 
     try (Connection conexion = DatabaseConfig.obtenerConexion();
-         PreparedStatement sentencia = conexion.prepareStatement(sql);
-         ResultSet rs = sentencia.executeQuery()) {
+         PreparedStatement sentencia = conexion.prepareStatement(sql)) {
+
+        if (idVentanilla != null) {
+            sentencia.setInt(1, idVentanilla);
+            sentencia.setInt(2, idVentanilla);
+        }
+
+      try (ResultSet rs = sentencia.executeQuery()) {
 
         while (rs.next()) {
             Servicio servicio = new Servicio(
@@ -402,9 +429,9 @@ public List<Turno> obtenerTurnosPendientes() throws SQLException {
                 turno.setFechaFinAtencion(fin.toLocalDateTime());
             }
 
-            int idVentanilla = rs.getInt("id_ventanilla");
+            int ventanillaTurno = rs.getInt("id_ventanilla");
             if (!rs.wasNull()) {
-                turno.setIdVentanilla(idVentanilla);
+                turno.setIdVentanilla(ventanillaTurno);
             }
 
             int idFuncionario = rs.getInt("id_funcionario");
@@ -414,6 +441,7 @@ public List<Turno> obtenerTurnosPendientes() throws SQLException {
 
             resultado.add(turno);
         }
+      }
     }
 
     return resultado;
@@ -502,6 +530,14 @@ public Turno llamarSiguienteTurno(
     INNER JOIN prioridad p
         ON t.id_prioridad = p.id_prioridad
     WHERE t.estado = 'EN_ESPERA'
+      AND (NOT EXISTS (
+               SELECT 1
+               FROM ventanilla_servicio vs0
+               WHERE vs0.id_ventanilla = ?)
+           OR t.id_servicio IN (
+               SELECT vs.id_servicio
+               FROM ventanilla_servicio vs
+               WHERE vs.id_ventanilla = ?))
     ORDER BY
         CASE t.id_prioridad
             WHEN 3 THEN 1
@@ -607,9 +643,15 @@ public Turno llamarSiguienteTurno(
                 }
             }
 
+            // Solo se consideran los servicios que atiende esta ventanilla
+            // (una ventanilla sin configuración atiende todos).
             try (PreparedStatement ps =
-                         conexion.prepareStatement(sqlBuscar);
-                 ResultSet rs = ps.executeQuery()) {
+                         conexion.prepareStatement(sqlBuscar)) {
+
+                ps.setInt(1, idVentanilla);
+                ps.setInt(2, idVentanilla);
+
+              try (ResultSet rs = ps.executeQuery()) {
 
                 if (!rs.next()) {
                     conexion.commit();
@@ -632,6 +674,7 @@ public Turno llamarSiguienteTurno(
                     PrioridadTurno.valueOf(rs.getString("prioridad"))
                 );
                 turno.setEstado(EstadoTurno.LLAMADO);
+              }
             }
 
             LocalDateTime ahora = LocalDateTime.now();

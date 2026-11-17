@@ -171,6 +171,150 @@ public class VentanillaDAO {
             }
         }
     }
+    /**
+     * Servicios que atiende cada ventanilla (ventanilla_servicio).
+     * Una ventanilla sin filas atiende todos los servicios.
+     */
+    public java.util.Map<Integer, List<Integer>> obtenerServiciosPorVentanilla()
+            throws SQLException {
+
+        String sql = """
+            SELECT id_ventanilla, id_servicio
+            FROM ventanilla_servicio
+            ORDER BY id_ventanilla, id_servicio
+            """;
+
+        java.util.Map<Integer, List<Integer>> resultado =
+                new java.util.HashMap<>();
+
+        try (Connection conexion = DatabaseConfig.obtenerConexion();
+             PreparedStatement ps = conexion.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                resultado
+                    .computeIfAbsent(
+                        rs.getInt("id_ventanilla"),
+                        k -> new ArrayList<>()
+                    )
+                    .add(rs.getInt("id_servicio"));
+            }
+        }
+
+        return resultado;
+    }
+
+    /**
+     * Define qué servicios atiende una ventanilla. Reemplaza la
+     * configuración anterior. Una lista vacía significa "todos".
+     *
+     * Se bloquea la fila de la ventanilla, igual que al llamar un turno
+     * (TurnoDAO.llamarSiguienteTurno), así que cambiar la configuración y
+     * llamar un turno al mismo tiempo se ejecutan en serie y la llamada
+     * siempre ve una configuración completa.
+     */
+    public void asignarServicios(
+            int idVentanilla,
+            List<Integer> idServicios) throws SQLException {
+
+        if (idServicios == null) {
+            throw new IllegalArgumentException(
+                "Debe indicar la lista de servicios."
+            );
+        }
+
+        java.util.Set<Integer> servicios =
+                new java.util.LinkedHashSet<>(idServicios);
+
+        String sqlBloquear = """
+            SELECT id_ventanilla
+            FROM ventanilla
+            WHERE id_ventanilla = ?
+            FOR UPDATE
+            """;
+
+        String sqlExiste = """
+            SELECT 1
+            FROM servicio
+            WHERE id_servicio = ?
+            """;
+
+        String sqlBorrar = """
+            DELETE FROM ventanilla_servicio
+            WHERE id_ventanilla = ?
+            """;
+
+        String sqlInsertar = """
+            INSERT INTO ventanilla_servicio (id_ventanilla, id_servicio)
+            VALUES (?, ?)
+            """;
+
+        try (Connection conexion = DatabaseConfig.obtenerConexion()) {
+
+            conexion.setAutoCommit(false);
+
+            try {
+                try (PreparedStatement ps =
+                             conexion.prepareStatement(sqlBloquear)) {
+
+                    ps.setInt(1, idVentanilla);
+
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (!rs.next()) {
+                            throw new IllegalArgumentException(
+                                "La ventanilla indicada no existe."
+                            );
+                        }
+                    }
+                }
+
+                try (PreparedStatement ps =
+                             conexion.prepareStatement(sqlExiste)) {
+
+                    for (int idServicio : servicios) {
+                        ps.setInt(1, idServicio);
+
+                        try (ResultSet rs = ps.executeQuery()) {
+                            if (!rs.next()) {
+                                throw new IllegalArgumentException(
+                                    "El servicio " + idServicio
+                                    + " no existe."
+                                );
+                            }
+                        }
+                    }
+                }
+
+                try (PreparedStatement ps =
+                             conexion.prepareStatement(sqlBorrar)) {
+
+                    ps.setInt(1, idVentanilla);
+                    ps.executeUpdate();
+                }
+
+                try (PreparedStatement ps =
+                             conexion.prepareStatement(sqlInsertar)) {
+
+                    for (int idServicio : servicios) {
+                        ps.setInt(1, idVentanilla);
+                        ps.setInt(2, idServicio);
+                        ps.addBatch();
+                    }
+
+                    ps.executeBatch();
+                }
+
+                conexion.commit();
+
+            } catch (SQLException | RuntimeException e) {
+                conexion.rollback();
+                throw e;
+            } finally {
+                conexion.setAutoCommit(true);
+            }
+        }
+    }
+
     public List<Ventanilla> obtenerTodas() throws SQLException {
     String sql = """
         SELECT id_ventanilla, nombre, estado
