@@ -184,6 +184,12 @@ public void run() {
     case CAMBIAR_DISPONIBILIDAD:
         return cambiarDisponibilidad(request);
 
+    case CREAR_SERVICIO:
+        return crearServicio(request);
+
+    case ACTUALIZAR_SERVICIO:
+        return actualizarServicio(request);
+
     case ASIGNAR_SERVICIOS_VENTANILLA:
         return asignarServiciosVentanilla(request);
         
@@ -309,7 +315,25 @@ private Response iniciarSesion(Request request)
     private Response obtenerServicios(Request request)
         throws SQLException {
 
-    List<Servicio> servicios = turnoService.consultarServicios();
+    // El kiosco solo ve los servicios activos; el administrador puede
+    // pedir todos con {"todos": true}.
+    boolean todos = false;
+
+    if (request.getDatos() != null) {
+        Map<String, Object> datos = mapper.convertValue(
+            request.getDatos(),
+            new TypeReference<Map<String, Object>>() {}
+        );
+        todos = Boolean.parseBoolean(String.valueOf(datos.get("todos")));
+    }
+
+    if (todos) {
+        validarAdministrador();
+    }
+
+    List<Servicio> servicios = todos
+        ? turnoService.consultarServicios()
+        : turnoService.consultarServiciosActivos();
 
     List<ServicioDTO> serviciosDTO = convertirServicios(servicios);
 
@@ -847,6 +871,82 @@ private Response cambiarDisponibilidad(Request request)
             ? "La ventanilla volvió a estar disponible."
             : "La ventanilla quedó marcada como no disponible.",
         Map.of("estado", estado.name())
+    );
+}
+
+private Response crearServicio(Request request)
+        throws SQLException {
+
+    validarAdministrador();
+
+    Map<String, Object> datos = datosDe(request);
+
+    Object prefijo = datos.get("prefijo");
+    Object nombre = datos.get("nombre");
+
+    if (!(prefijo instanceof String) || !(nombre instanceof String)) {
+        throw new IllegalArgumentException(
+            "Debe indicar el prefijo y el nombre del servicio."
+        );
+    }
+
+    turnoService.crearServicio(
+        ((String) prefijo).trim().toUpperCase(),
+        (String) nombre
+    );
+
+    return new Response(
+        request.getIdSolicitud(),
+        TipoMensaje.CREAR_SERVICIO,
+        true,
+        "Servicio creado correctamente.",
+        null
+    );
+}
+
+private Response actualizarServicio(Request request)
+        throws SQLException {
+
+    validarAdministrador();
+
+    Map<String, Object> datos = datosDe(request);
+
+    Object id = datos.get("idServicio");
+    Object nombre = datos.get("nombre");
+    Object activo = datos.get("activo");
+
+    if (!(id instanceof Number)
+            || !(nombre instanceof String)
+            || !(activo instanceof Boolean)) {
+        throw new IllegalArgumentException(
+            "Debe indicar el servicio, su nombre y si está activo."
+        );
+    }
+
+    turnoService.actualizarServicio(
+        ((Number) id).intValue(),
+        (String) nombre,
+        (Boolean) activo
+    );
+
+    return new Response(
+        request.getIdSolicitud(),
+        TipoMensaje.ACTUALIZAR_SERVICIO,
+        true,
+        "Servicio actualizado correctamente.",
+        null
+    );
+}
+
+private Map<String, Object> datosDe(Request request) {
+
+    if (request.getDatos() == null) {
+        throw new IllegalArgumentException("Faltan los datos.");
+    }
+
+    return mapper.convertValue(
+        request.getDatos(),
+        new TypeReference<Map<String, Object>>() {}
     );
 }
 
