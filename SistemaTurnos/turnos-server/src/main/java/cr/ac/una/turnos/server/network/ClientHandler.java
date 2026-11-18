@@ -196,6 +196,15 @@ public void run() {
     case OBTENER_USUARIOS:
         return obtenerUsuarios(request);
         
+    case CAMBIAR_ESTADO_USUARIO:
+        return cambiarEstadoUsuario(request);
+
+    case RESTABLECER_CONTRASENA:
+        return restablecerContrasena(request);
+
+    case ACTUALIZAR_NOMBRE_USUARIO:
+        return actualizarNombreUsuario(request);
+
     case CREAR_USUARIO:
         return crearUsuario(request);
     
@@ -791,6 +800,20 @@ private void validarAdministrador() {
             "No tiene permisos para realizar esta operación."
         );
     }
+
+    // Un administrador desactivado con la sesión ya abierta no puede
+    // seguir operando.
+    try {
+        if (!usuarioDAO.estaActivo(funcionario.getUsuario().getId())) {
+            throw new IllegalStateException(
+                "Su usuario fue desactivado."
+            );
+        }
+    } catch (java.sql.SQLException e) {
+        throw new IllegalStateException(
+            "No se pudo verificar el estado del usuario.", e
+        );
+    }
 }
 
 private Response obtenerVentanillas(Request request)
@@ -1067,6 +1090,85 @@ private Response obtenerUsuarios(Request request)
             usuarios
     );
 }
+private Response cambiarEstadoUsuario(Request request)
+        throws SQLException {
+
+    validarAdministrador();
+
+    Map<String, Object> datos = datosDe(request);
+
+    if (!(datos.get("idUsuario") instanceof Number id)
+            || !(datos.get("activo") instanceof Boolean activo)) {
+        throw new IllegalArgumentException(
+            "Debe indicar el usuario y si queda activo."
+        );
+    }
+
+    usuarioDAO.cambiarEstado(
+        id.intValue(),
+        activo,
+        sesionService.getFuncionarioActual().getUsuario().getId()
+    );
+
+    return new Response(
+        request.getIdSolicitud(),
+        TipoMensaje.CAMBIAR_ESTADO_USUARIO,
+        true,
+        activo ? "Usuario activado." : "Usuario desactivado.",
+        null
+    );
+}
+
+private Response restablecerContrasena(Request request)
+        throws SQLException {
+
+    validarAdministrador();
+
+    Map<String, Object> datos = datosDe(request);
+
+    if (!(datos.get("idUsuario") instanceof Number id)
+            || !(datos.get("contrasena") instanceof String contrasena)) {
+        throw new IllegalArgumentException(
+            "Debe indicar el usuario y la contraseña nueva."
+        );
+    }
+
+    usuarioDAO.restablecerContrasena(id.intValue(), contrasena);
+
+    return new Response(
+        request.getIdSolicitud(),
+        TipoMensaje.RESTABLECER_CONTRASENA,
+        true,
+        "Contraseña restablecida.",
+        null
+    );
+}
+
+private Response actualizarNombreUsuario(Request request)
+        throws SQLException {
+
+    validarAdministrador();
+
+    Map<String, Object> datos = datosDe(request);
+
+    if (!(datos.get("idUsuario") instanceof Number id)
+            || !(datos.get("nombreCompleto") instanceof String nombre)) {
+        throw new IllegalArgumentException(
+            "Debe indicar el usuario y el nombre completo."
+        );
+    }
+
+    usuarioDAO.actualizarNombreCompleto(id.intValue(), nombre);
+
+    return new Response(
+        request.getIdSolicitud(),
+        TipoMensaje.ACTUALIZAR_NOMBRE_USUARIO,
+        true,
+        "Nombre actualizado.",
+        null
+    );
+}
+
 private Response crearUsuario(Request request)
         throws SQLException {
 
