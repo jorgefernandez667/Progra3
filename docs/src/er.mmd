@@ -1,0 +1,81 @@
+erDiagram
+    USUARIO ||--o| FUNCIONARIO : "tiene"
+    FUNCIONARIO ||--o{ ASIGNACION_VENTANILLA : "ocupa"
+    VENTANILLA ||--o{ ASIGNACION_VENTANILLA : "es ocupada"
+    VENTANILLA ||--o{ VENTANILLA_SERVICIO : "atiende"
+    SERVICIO ||--o{ VENTANILLA_SERVICIO : "es atendido por"
+    SERVICIO ||--o{ TURNO : "solicitado en"
+    PRIORIDAD ||--o{ TURNO : "clasifica"
+    VENTANILLA |o--o{ TURNO : "atiende"
+    FUNCIONARIO |o--o{ TURNO : "atiende"
+    TURNO ||--o{ HISTORIAL_TURNO : "registra cambios"
+    SERVICIO ||--o{ CONTADOR_TURNO : "numera por dia"
+
+    USUARIO {
+        int id_usuario PK
+        varchar nombre_usuario UK
+        varchar contrasena "hash BCrypt"
+        enum rol "ADMINISTRADOR u OPERADOR"
+        bool activo
+    }
+    FUNCIONARIO {
+        int id_funcionario PK
+        int id_usuario FK,UK
+        varchar nombre_completo
+    }
+    VENTANILLA {
+        int id_ventanilla PK
+        varchar nombre
+        enum estado "DISPONIBLE OCUPADA NO_DISPONIBLE INACTIVA"
+    }
+    SERVICIO {
+        int id_servicio PK
+        varchar nombre
+        char prefijo UK
+        bool activo
+    }
+    PRIORIDAD {
+        int id_prioridad PK
+        varchar nombre UK
+        int nivel UK
+    }
+    VENTANILLA_SERVICIO {
+        int id_ventanilla PK,FK
+        int id_servicio PK,FK
+    }
+    ASIGNACION_VENTANILLA {
+        int id_asignacion PK
+        int id_funcionario FK
+        int id_ventanilla FK
+        date fecha
+        time hora_inicio
+        time hora_fin
+    }
+    TURNO {
+        int id_turno PK
+        varchar codigo "UK con fecha_generacion"
+        int id_servicio FK
+        int id_prioridad FK
+        enum estado
+        date fecha_generacion
+        datetime hora_generacion
+        datetime hora_llamado
+        datetime hora_inicio_atencion
+        datetime hora_fin_atencion
+        int id_ventanilla FK
+        int id_funcionario FK
+    }
+    HISTORIAL_TURNO {
+        int id_historial PK
+        int id_turno FK
+        enum estado
+        datetime fecha_hora
+        int id_funcionario FK
+        int id_ventanilla FK
+        varchar comentario
+    }
+    CONTADOR_TURNO {
+        date fecha PK
+        int id_servicio PK,FK
+        int ultimo
+    }
