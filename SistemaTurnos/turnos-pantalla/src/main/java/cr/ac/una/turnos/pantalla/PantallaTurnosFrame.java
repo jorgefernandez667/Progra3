@@ -57,6 +57,23 @@ public class PantallaTurnosFrame extends JFrame {
     private final Timer temporizador =
             new Timer(3000, e -> actualizarPantalla());
 
+    /** Hora actual: se refresca cada segundo, sin consultar al servidor. */
+    private final JLabel etiquetaHora =
+            new JLabel("", SwingConstants.CENTER);
+
+    private final Timer relojPantalla =
+            new Timer(1000, e -> mostrarHora());
+
+    private static final java.time.format.DateTimeFormatter FORMATO_HORA =
+            java.time.format.DateTimeFormatter.ofPattern(
+                    "EEEE d 'de' MMMM 'de' yyyy  —  HH:mm:ss",
+                    java.util.Locale.forLanguageTag("es-CR")
+            );
+
+    private void mostrarHora() {
+        etiquetaHora.setText(LocalDateTime.now().format(FORMATO_HORA));
+    }
+
     private boolean actualizacionEnCurso = false;
 
     private final SonidoLlamado sonido = new SonidoLlamado();
@@ -69,6 +86,9 @@ public class PantallaTurnosFrame extends JFrame {
     public PantallaTurnosFrame() {
         configurarVentana();
         inicializarComponentes();
+
+        mostrarHora();
+        relojPantalla.start();
 
         actualizarPantalla();
         temporizador.start();
@@ -96,6 +116,11 @@ public class PantallaTurnosFrame extends JFrame {
         );
 
         titulo.setFont(new Font("SansSerif", Font.BOLD, 28));
+        etiquetaHora.setFont(new Font("SansSerif", Font.PLAIN, 18));
+
+        JPanel cabecera = new JPanel(new BorderLayout(0, 4));
+        cabecera.add(titulo, BorderLayout.CENTER);
+        cabecera.add(etiquetaHora, BorderLayout.SOUTH);
 
         JPanel panelLlamado = new JPanel(new BorderLayout(10, 10));
 
@@ -165,7 +190,7 @@ public class PantallaTurnosFrame extends JFrame {
 
         JPanel panelSuperior = new JPanel(new BorderLayout(10, 10));
 
-        panelSuperior.add(titulo, BorderLayout.NORTH);
+        panelSuperior.add(cabecera, BorderLayout.NORTH);
         panelSuperior.add(panelLlamado, BorderLayout.CENTER);
 
         JPanel panelCentral = new JPanel(new BorderLayout(10, 15));
@@ -462,6 +487,7 @@ public class PantallaTurnosFrame extends JFrame {
     @Override
     public void dispose() {
         temporizador.stop();
+        relojPantalla.stop();
         super.dispose();
     }
 
