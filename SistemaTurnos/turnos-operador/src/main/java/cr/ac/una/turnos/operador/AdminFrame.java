@@ -50,6 +50,9 @@ public class AdminFrame extends JFrame {
             new java.util.HashMap<>();
     private final JButton botonActualizarUsuarios;
     private final JButton botonCrearOperador;
+    private final JButton botonNombreUsuario;
+    private final JButton botonContrasenaUsuario;
+    private final JButton botonEstadoUsuario;
     private final JButton botonGenerarReporte;
 
     private final JComboBox<String> selectorReporte;
@@ -157,10 +160,16 @@ public class AdminFrame extends JFrame {
 
         botonActualizarUsuarios = new JButton("Actualizar usuarios");
         botonCrearOperador = new JButton("Crear operador");
+        botonNombreUsuario = new JButton("Cambiar nombre");
+        botonContrasenaUsuario = new JButton("Restablecer contraseña");
+        botonEstadoUsuario = new JButton("Activar / desactivar");
 
         JPanel botonesUsuarios = new JPanel(new FlowLayout());
         botonesUsuarios.add(botonActualizarUsuarios);
         botonesUsuarios.add(botonCrearOperador);
+        botonesUsuarios.add(botonNombreUsuario);
+        botonesUsuarios.add(botonContrasenaUsuario);
+        botonesUsuarios.add(botonEstadoUsuario);
 
         panelUsuarios.add(botonesUsuarios, BorderLayout.SOUTH);
 
@@ -261,6 +270,13 @@ public class AdminFrame extends JFrame {
         botonActualizarUsuarios.addActionListener(
                 e -> cargarUsuarios()
         );
+
+        botonNombreUsuario.addActionListener(
+                e -> cambiarNombreUsuario());
+        botonContrasenaUsuario.addActionListener(
+                e -> restablecerContrasenaUsuario());
+        botonEstadoUsuario.addActionListener(
+                e -> alternarUsuario());
 
         botonCrearOperador.addActionListener(
                 e -> mostrarFormularioOperador()
@@ -650,6 +666,158 @@ public class AdminFrame extends JFrame {
         }
     }
 
+    private int filaUsuario() {
+
+        int fila = tablaUsuarios.getSelectedRow();
+
+        if (fila < 0) {
+            JOptionPane.showMessageDialog(
+                    this, "Seleccione un usuario.", "Usuarios",
+                    JOptionPane.WARNING_MESSAGE
+            );
+        }
+
+        return fila;
+    }
+
+    private void enviarCambioUsuario(TipoMensaje tipo, Object datos) {
+
+        try {
+            Response respuesta = cliente.enviarSolicitud(tipo, datos);
+
+            if (!respuesta.isExitoso()) {
+                throw new IllegalStateException(respuesta.getMensaje());
+            }
+
+            cargarUsuarios();
+
+        } catch (Exception e) {
+            mostrarError("No fue posible guardar el cambio.", e);
+        }
+    }
+
+    private void cambiarNombreUsuario() {
+
+        int fila = filaUsuario();
+
+        if (fila < 0) {
+            return;
+        }
+
+        Object nuevo = JOptionPane.showInputDialog(
+                this,
+                "Nuevo nombre completo de "
+                        + modeloUsuarios.getValueAt(fila, 1) + ":",
+                "Cambiar nombre",
+                JOptionPane.PLAIN_MESSAGE,
+                null,
+                null,
+                modeloUsuarios.getValueAt(fila, 4)
+        );
+
+        if (nuevo == null) {
+            return;
+        }
+
+        enviarCambioUsuario(
+                TipoMensaje.ACTUALIZAR_NOMBRE_USUARIO,
+                Map.of(
+                        "idUsuario", Integer.parseInt(
+                                modeloUsuarios.getValueAt(fila, 0)
+                                        .toString()),
+                        "nombreCompleto", nuevo.toString().trim()
+                )
+        );
+    }
+
+    private void restablecerContrasenaUsuario() {
+
+        int fila = filaUsuario();
+
+        if (fila < 0) {
+            return;
+        }
+
+        JPasswordField campo = new JPasswordField(20);
+        JPasswordField confirmacion = new JPasswordField(20);
+
+        JPanel panel = new JPanel(new GridLayout(0, 2, 6, 6));
+        panel.add(new JLabel("Contraseña nueva:"));
+        panel.add(campo);
+        panel.add(new JLabel("Repetir contraseña:"));
+        panel.add(confirmacion);
+
+        int opcion = JOptionPane.showConfirmDialog(
+                this, panel,
+                "Restablecer contraseña de "
+                        + modeloUsuarios.getValueAt(fila, 1),
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (opcion != JOptionPane.OK_OPTION) {
+            return;
+        }
+
+        String nueva = new String(campo.getPassword());
+
+        if (!nueva.equals(new String(confirmacion.getPassword()))) {
+            JOptionPane.showMessageDialog(
+                    this, "Las contraseñas no coinciden.", "Usuarios",
+                    JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        enviarCambioUsuario(
+                TipoMensaje.RESTABLECER_CONTRASENA,
+                Map.of(
+                        "idUsuario", Integer.parseInt(
+                                modeloUsuarios.getValueAt(fila, 0)
+                                        .toString()),
+                        "contrasena", nueva
+                )
+        );
+    }
+
+    private void alternarUsuario() {
+
+        int fila = filaUsuario();
+
+        if (fila < 0) {
+            return;
+        }
+
+        boolean activoAhora = "ACTIVO".equals(
+                modeloUsuarios.getValueAt(fila, 5));
+
+        int opcion = JOptionPane.showConfirmDialog(
+                this,
+                (activoAhora ? "¿Desactivar" : "¿Activar")
+                        + " al usuario "
+                        + modeloUsuarios.getValueAt(fila, 1) + "?"
+                        + (activoAhora
+                        ? "\nNo podrá iniciar sesión hasta que se "
+                        + "vuelva a activar."
+                        : ""),
+                "Confirmar",
+                JOptionPane.YES_NO_OPTION
+        );
+
+        if (opcion != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        enviarCambioUsuario(
+                TipoMensaje.CAMBIAR_ESTADO_USUARIO,
+                Map.of(
+                        "idUsuario", Integer.parseInt(
+                                modeloUsuarios.getValueAt(fila, 0)
+                                        .toString()),
+                        "activo", !activoAhora
+                )
+        );
+    }
+
     private void cargarUsuarios() {
 
         botonActualizarUsuarios.setEnabled(false);
@@ -666,7 +834,7 @@ public class AdminFrame extends JFrame {
 
             modeloUsuarios.setColumnIdentifiers(new Object[]{
                 "ID", "Usuario", "Rol",
-                "Funcionario", "Nombre completo"
+                "Funcionario", "Nombre completo", "Estado"
             });
             modeloUsuarios.setRowCount(0);
 
@@ -685,7 +853,9 @@ public class AdminFrame extends JFrame {
                                 : datos.get("idFuncionario"),
                         datos.get("nombreCompleto") == null
                                 ? "Sin funcionario"
-                                : datos.get("nombreCompleto")
+                                : datos.get("nombreCompleto"),
+                        Boolean.FALSE.equals(datos.get("activo"))
+                                ? "INACTIVO" : "ACTIVO"
                     });
                 }
             }
