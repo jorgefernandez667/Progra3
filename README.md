@@ -1,251 +1,49 @@
 # Sistema Distribuido de Gestión de Turnos
 
-**Curso:** Programación III  
-**Estado:** En desarrollo
+**EIF206 — Programación III · Universidad Nacional**
 
-## 1. Descripción
+Sistema cliente-servidor en Java que simula la atención de personas en una institución con varios servicios: una terminal genera turnos, los funcionarios los llaman desde sus ventanillas y una pantalla pública muestra el turno llamado en tiempo real. Todas las aplicaciones se comunican con un servidor central por **sockets TCP**; solo el servidor accede a la base de datos.
 
-Sistema distribuido para la gestión de turnos de atención.
+## Aplicaciones
 
-El proyecto se está desarrollando mediante una arquitectura por capas, separando presentación, aplicación/servicios, dominio y repositorio/datos.
+| Módulo | Qué es |
+|---|---|
+| `turnos-server` | Servidor central (puerto 5000). Reglas del negocio, concurrencia y acceso a la base de datos. |
+| `turnos-generador` | Terminal para generar turnos. |
+| `turnos-operador` | Inicio de sesión; ventana del operador (llamar, volver a llamar, iniciar/finalizar atención, marcar no disponible) y panel del administrador (ventanillas, servicios, usuarios, reportes). |
+| `turnos-pantalla` | Pantalla pública: último turno, llamados recientes, hora actual y sonido. |
+| `turnos-common` | Código compartido: DTO, enumeraciones, protocolo y clientes TCP. |
 
-En el primer avance se prioriza la lógica básica del sistema. En esta etapa los datos pueden mantenerse en memoria. Todavía no se implementan los sockets, la persistencia Java/MySQL ni la concurrencia definitiva.
+## Qué incluye
 
-## 2. Tecnologías
+- Turnos con código por servicio que reinicia cada día (`A001`…), prioridad **URGENTE > PREFERENCIAL > NORMAL** y desempate por antigüedad.
+- Concurrencia segura: dos ventanillas nunca reciben el mismo turno (transacciones y bloqueos de fila en la base de datos).
+- Ocho estados de turno con historial de cada cambio.
+- Administración de usuarios, ventanillas, servicios y de qué servicios atiende cada ventanilla.
+- Cinco reportes: turnos atendidos, atención por funcionario, atención por servicio, tiempo de espera y tiempo de atención.
+- Innovación: sonido de llamado, cierre diario automático de turnos pendientes, liberación de turnos al cerrar sesión, estado de ventanilla "no disponible".
 
-- Java 21+
-- Maven
-- NetBeans
-- MySQL, con autorización del profesor
-- Git / GitHub
+## Ejecución rápida
 
-## 3. Arquitectura
+1. **Base de datos (MySQL 8):** cree una base vacía y ejecute `SistemaTurnos/sql/crear_base_datos.sql` y luego `SistemaTurnos/sql/datos_prueba.sql`.
+2. **Credenciales:** defina las variables de entorno `TURNOS_DB_USER` y `TURNOS_DB_PASSWORD`. La URL de la base está en `turnos-server/.../config/DatabaseConfig.java`.
+3. **Compilar** (desde `SistemaTurnos`): `mvn clean install -DskipTests`, o *Clean and Build* sobre el proyecto padre en NetBeans.
+4. **Ejecutar**, en este orden:
+   1. `cr.ac.una.turnos.server.ServerApplication`
+   2. `cr.ac.una.turnos.pantalla.PantallaTurnosFrame`
+   3. `cr.ac.una.turnos.operador.OperadorTurnosFrame` (una vez por operador)
+   4. `cr.ac.una.turnos.generador.GeneradorTurnosFrame`
 
-```text
-Presentación
-      ↓
-Aplicación / Servicios
-      ↓
-Dominio
-      ↓
-Repositorio / Datos
-```
+**Usuarios de prueba:** `admin` / `Admin123*` · `operador1`, `operador2`, `operador3` / `Turnos123*`.
 
-La arquitectura final tendrá un servidor central y diferentes clientes. Los clientes no accederán directamente a la base de datos.
+Requisitos: JDK 21 o superior, Maven 3.9+, MySQL 8.x. El `pom.xml` usa `maven.compiler.release` 26; si su JDK es 21, cámbielo a 21.
 
-## 4. Estructura actual
+## Documentación
 
-```text
-SistemaTurnos
-└── turnos-common
-    └── src/main/java/cr/ac/una/turnos/common
-        ├── domain
-        ├── dto
-        └── enums
-```
+- [Documento técnico](docs/DOCUMENTO_TECNICO.md): problema, solución, arquitectura, base de datos, comunicación, hilos, concurrencia, patrones, instrucciones completas y escenario de demostración.
+- Diagramas: [base de datos](docs/img/diagrama_bd.png) y [componentes](docs/img/diagrama_componentes.png) (fuentes Mermaid en `docs/src/`).
+- Scripts SQL en `SistemaTurnos/sql/`: `crear_base_datos.sql` (esquema final) y `datos_prueba.sql`. Los archivos `002…006_*.sql` son migraciones solo para bases creadas con el esquema anterior.
 
-La estructura se ampliará conforme avance el proyecto.
+## Repositorio
 
-## 5. turnos-common
-
-### DTO implementado
-
-- `TurnoDTO`
-
-Contiene información del turno como identificador, código, servicio, prioridad, estado, fechas, ventanilla y funcionario.
-
-### Enumeraciones implementadas
-
-#### EstadoTurno
-
-- `EN_ESPERA`
-- `LLAMADO`
-- `EN_ATENCION`
-- `FINALIZADO`
-- `CANCELADO`
-- `ABANDONADO`
-- `TRANSFERIDO`
-- `SUSPENDIDO`
-
-#### EstadoVentanilla
-
-- `DISPONIBLE`
-- `OCUPADA`
-- `INACTIVA`
-
-#### PrioridadTurno
-
-- `NORMAL`
-- `PREFERENCIAL`
-- `URGENTE`
-
-#### TipoUsuario
-
-Define los tipos de usuario del sistema.
-
-#### TipoMensaje
-
-Contiene las operaciones previstas para la comunicación del sistema, incluyendo `LOGIN`, `LOGOUT`, `OBTENER_SERVICIOS`, `GENERAR_TURNO`, `SOLICITAR_SIGUIENTE_TURNO`, `LLAMAR_TURNO`, `INICIAR_ATENCION`, `FINALIZAR_ATENCION`, `RECLAMAR_TURNO`, `OBTENER_VENTANILLAS`, `CAMBIAR_ESTADO_VENTANILLA`, `ACTUALIZAR_PANTALLA`, `OBTENER_USUARIOS`, `OBTENER_FUNCIONARIOS`, `OBTENER_REPORTES` y `ERROR`.
-
-### Dominio
-
-El paquete `domain` ya fue creado dentro de `turnos-common`.
-
-## 6. Primer avance
-
-El primer avance se enfoca en la lógica básica de los turnos, sin depender todavía de sockets, base de datos o concurrencia definitiva.
-
-Se debe cubrir:
-
-- Crear turnos.
-- Asignar identificadores.
-- Manejar estados.
-- Consultar turnos pendientes.
-- Llamar un turno.
-- Cambiar el estado de un turno.
-- Mostrar el turno llamado.
-- Validar operaciones inválidas.
-
-Los datos pueden permanecer en memoria durante esta etapa.
-
-## 7. Funcionalidades planificadas
-
-### Generador
-
-- Seleccionar servicio.
-- Generar turno.
-- Asignar código único.
-- Registrar fecha y hora.
-- Mostrar el turno generado.
-
-### Operador
-
-- Iniciar sesión.
-- Identificar ventanilla.
-- Solicitar siguiente turno.
-- Llamar turno.
-- Iniciar atención.
-- Finalizar atención.
-- Reclamar turno.
-- Cambiar estado de ventanilla.
-
-### Pantalla
-
-- Mostrar turno llamado.
-- Mostrar ventanilla.
-- Actualizar la información ante un nuevo llamado.
-
-### Administración
-
-- Usuarios.
-- Funcionarios.
-- Ventanillas.
-- Servicios.
-- Configuración de servicios y ventanillas.
-
-## 8. Base de datos
-
-El proyecto utilizará **MySQL**, con autorización del profesor.
-
-La persistencia definitiva todavía no forma parte del primer avance. Por ahora los datos pueden mantenerse en memoria.
-
-Posteriormente se almacenarán datos de usuarios, funcionarios, ventanillas, servicios, turnos, estados e historial de atención.
-
-## 9. Comunicación y concurrencia
-
-La comunicación mediante sockets todavía no está implementada.
-
-La concurrencia definitiva tampoco está implementada.
-
-En etapas posteriores el servidor deberá atender múltiples clientes simultáneamente y garantizar que un mismo turno no sea asignado a dos ventanillas al mismo tiempo.
-
-## 10. Patrones de diseño
-
-Se contempla la utilización de:
-
-- DAO
-- Repository
-- Observer
-- Strategy
-- Factory
-- Singleton
-- MVC
-
-La implementación y justificación se realizará conforme avance el proyecto.
-
-## 11. Progreso
-
-### Configuración inicial
-
-- [x] Crear `SistemaTurnos`.
-- [x] Configurar Maven multi-módulo.
-- [x] Crear `turnos-common`.
-- [x] Crear estructura inicial de paquetes.
-- [x] Crear `TurnoDTO`.
-- [x] Crear `EstadoTurno`.
-- [x] Crear `EstadoVentanilla`.
-- [x] Crear `PrioridadTurno`.
-- [x] Crear `TipoUsuario`.
-- [x] Crear `TipoMensaje`.
-- [x] Verificar compilación.
-
-### Primer avance
-
-- [x] Definir el alcance del primer avance.
-- [x] Definir la separación Presentación → Aplicación/Servicios → Dominio → Repositorio/Datos.
-- [x] Crear el paquete `domain`.
-- [ ] Completar la entidad de dominio `Turno`.
-- [ ] Implementar generación de turnos.
-- [ ] Implementar consulta de turnos pendientes.
-- [ ] Implementar llamado de turnos.
-- [ ] Implementar cambios de estado.
-- [ ] Implementar validaciones.
-- [ ] Implementar prueba completa del flujo.
-
-### Etapas posteriores
-
-- [ ] Repositorios.
-- [ ] Persistencia con MySQL.
-- [ ] Servidor.
-- [ ] Sockets.
-- [ ] Manejo de múltiples clientes.
-- [ ] Concurrencia.
-- [ ] `turnos-generador`.
-- [ ] `turnos-operador`.
-- [ ] `turnos-pantalla`.
-- [ ] JavaFX.
-- [ ] Administración.
-- [ ] Reportes.
-- [ ] Pruebas finales.
-- [ ] Documentación.
-
-## 12. Compilación
-
-Desde la raíz:
-
-```bash
-mvn clean install
-```
-
-También se puede utilizar **Clean and Build** desde NetBeans.
-
-## 13. Estado actual — 18 de septiembre de 2026
-
-El proyecto se encuentra en el **primer avance de la lógica básica de turnos**.
-
-La base Maven y `turnos-common` están configurados, incluyendo el DTO y las enumeraciones principales. El paquete `domain` ya fue creado y el trabajo actual se concentra en implementar el flujo básico de turnos utilizando datos en memoria.
-
-No se consideran implementados todavía:
-
-- Sockets.
-- Persistencia Java/MySQL.
-- Concurrencia definitiva.
-- Servidor completo.
-- Clientes completos.
-- JavaFX.
-- Administración.
-- Reportes.
-
-## 14. Repositorio
-
-**GitHub:** `jorgefernandez667/Progra3`
+GitHub: `jorgefernandez667/progra3`

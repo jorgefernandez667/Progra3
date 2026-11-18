@@ -1,0 +1,23 @@
+flowchart LR
+    subgraph Clientes["Aplicaciones cliente (Java Swing)"]
+        GEN["turnos-generador<br/>Terminal de turnos"]
+        OPE["turnos-operador<br/>Operador y Administrador"]
+        PAN["turnos-pantalla<br/>Pantalla pública"]
+    end
+    COM["turnos-common<br/>DTO, enums, protocolo,<br/>clientes TCP"]
+    subgraph Servidor["turnos-server (puerto 5000)"]
+        NET["ClientHandler<br/>un hilo por conexión"]
+        SRV["Servicios<br/>TurnoService / SesionService"]
+        DAO["DAO<br/>TurnoDAO, VentanillaDAO,<br/>UsuarioDAO, ServicioDAO, ReporteDAO"]
+        CIE["Cierre diario<br/>hilo programado"]
+    end
+    DB[("Base de datos<br/>MySQL")]
+    GEN -- "TCP + JSON" --> NET
+    OPE -- "TCP + JSON" --> NET
+    PAN -- "TCP + JSON<br/>consulta cada 3 s" --> NET
+    COM -. "usado por" .-> GEN
+    COM -. "usado por" .-> OPE
+    COM -. "usado por" .-> PAN
+    COM -. "usado por" .-> NET
+    NET --> SRV --> DAO -- "JDBC" --> DB
+    CIE --> SRV

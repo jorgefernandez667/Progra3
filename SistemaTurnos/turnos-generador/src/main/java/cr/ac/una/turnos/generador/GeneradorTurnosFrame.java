@@ -61,12 +61,9 @@ public class GeneradorTurnosFrame extends javax.swing.JFrame {
     panelSuperior.add(subtitulo);
 
     // Servicio
-    comboServicios = new JComboBox<>(new String[]{
-        "Información general",
-        "Trámites",
-        "Pagos",
-        "Atención preferencial"
-    });
+    // Los servicios se piden al servidor: así aparecen los que el
+    // administrador crea y desaparecen los que desactiva.
+    comboServicios = new JComboBox<>();
 
     comboServicios.setFont(new Font("SansSerif", Font.PLAIN, 16));
 
@@ -116,14 +113,73 @@ public class GeneradorTurnosFrame extends javax.swing.JFrame {
     panelPrincipal.add(panelCentral, BorderLayout.CENTER);
 
     setContentPane(panelPrincipal);
+
+    cargarServicios();
+
+    // Mantiene la lista al día mientras la terminal está encendida.
+    new javax.swing.Timer(30000, e -> cargarServicios()).start();
+}
+
+/** Servicio que se muestra en la lista (se ve el nombre, se envía el id). */
+private record ServicioItem(int id, String nombre) {
+    @Override
+    public String toString() {
+        return nombre;
+    }
+}
+
+/** Pide al servidor los servicios activos y actualiza la lista. */
+private void cargarServicios() {
+
+    try {
+        Response respuesta = new TcpClient().enviarSolicitud(
+                TipoMensaje.OBTENER_SERVICIOS,
+                null
+        );
+
+        if (!respuesta.isExitoso()) {
+            throw new IllegalStateException(respuesta.getMensaje());
+        }
+
+        ServicioItem elegido =
+                (ServicioItem) comboServicios.getSelectedItem();
+
+        comboServicios.removeAllItems();
+
+        if (respuesta.getDatos() instanceof java.util.List<?> lista) {
+            for (Object elemento : lista) {
+                Map<?, ?> datos = (Map<?, ?>) elemento;
+                ServicioItem item = new ServicioItem(
+                        ((Number) datos.get("id")).intValue(),
+                        datos.get("nombre").toString()
+                );
+                comboServicios.addItem(item);
+
+                if (elegido != null && elegido.id() == item.id()) {
+                    comboServicios.setSelectedItem(item);
+                }
+            }
+        }
+
+        botonGenerar.setEnabled(comboServicios.getItemCount() > 0);
+
+    } catch (Exception e) {
+        // Se conserva la lista anterior; el siguiente intento reintenta.
+        if (comboServicios.getItemCount() == 0) {
+            botonGenerar.setEnabled(false);
+            etiquetaMensaje.setText(
+                    "No hay conexión con el servidor. Reintentando…"
+            );
+        }
+    }
 }
     
 
 private void generarTurno() {
-    String servicioSeleccionado =
-            (String) comboServicios.getSelectedItem();
+    ServicioItem servicio =
+            (ServicioItem) comboServicios.getSelectedItem();
 
-    if (servicioSeleccionado == null) {
+    if (servicio == null) {
         JOptionPane.showMessageDialog(
                 this,
                 "Debe seleccionar un servicio.",
@@ -133,35 +189,8 @@ private void generarTurno() {
         return;
     }
 
-    int idServicio;
-    String prefijo;
-
-    switch (servicioSeleccionado) {
-        case "Información general" -> {
-            idServicio = 1;
-            prefijo = "A";
-        }
-        case "Trámites" -> {
-            idServicio = 2;
-            prefijo = "B";
-        }
-        case "Pagos" -> {
-            idServicio = 3;
-            prefijo = "C";
-        }
-        case "Atención preferencial" -> {
-            idServicio = 4;
-            prefijo = "D";
-        }
-        default -> {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "El servicio seleccionado no es válido."
-            );
-            return;
-        }
-    }
-
+    int idServicio = servicio.id();
+    String servicioSeleccionado = servicio.nombre();
 
     try {
        PrioridadTurno prioridadSeleccionada =
@@ -220,6 +249,9 @@ JOptionPane.showMessageDialog(
                 JOptionPane.ERROR_MESSAGE
         );
         e.printStackTrace();
+
+        // Puede ser que el servicio ya no esté disponible.
+        cargarServicios();
     }
 }
 
@@ -271,7 +303,7 @@ JOptionPane.showMessageDialog(
     
 
 
-private javax.swing.JComboBox<String> comboServicios;
+private javax.swing.JComboBox<ServicioItem> comboServicios;
 private javax.swing.JLabel etiquetaTurno;
 private javax.swing.JLabel etiquetaMensaje;
 private javax.swing.JButton botonGenerar;
