@@ -6,18 +6,14 @@
 | | |
 |---|---|
 | **Proyecto** | Sistema Distribuido de Gestión de Turnos |
-| **Grupo** | [COMPLETAR: número de grupo] |
-| **Profesor** | [COMPLETAR] |
-| **Fecha de entrega** | [COMPLETAR] |
 | **Repositorio** | `jorgefernandez667/progra3` (GitHub) |
 
 ## 1. Integrantes
 
-| Nombre | Carné | Correo |
-|---|---|---|
-| [COMPLETAR] | [COMPLETAR] | [COMPLETAR] |
-| [COMPLETAR] | [COMPLETAR] | [COMPLETAR] |
-| [COMPLETAR] | [COMPLETAR] | [COMPLETAR] |
+| Nombre |
+|---|
+| Jorge Fernández Miranda |
+| Jafeth Godínez Matarrita |
 
 ## 2. Descripción del problema
 
@@ -304,10 +300,14 @@ Genere unos 20 turnos, abra dos operadores y presione **Llamar siguiente** en am
 
 | Integrante | Responsabilidades |
 |---|---|
-| [COMPLETAR] | [COMPLETAR] |
-| [COMPLETAR] | [COMPLETAR] |
-| [COMPLETAR] | [COMPLETAR] |
+| Jorge Fernández Miranda | turnos-server, turnos-generador, turnos-operador |
+| Jafeth Godínez Matarrita | turnos-common, turnos-pantalla |
+
 
 ## 15. Conclusiones
 
-[COMPLETAR por el grupo. Sugerencias de qué mencionar: lo aprendido sobre sockets y concurrencia con bloqueos de base de datos, por qué `synchronized` no alcanza entre clientes distintos, las dificultades encontradas y lo que mejorarían.]
+El proyecto nos permitió integrar en una sola solución lo estudiado en el curso: interfaces gráficas, arquitectura por capas, sockets, hilos, persistencia y control de concurrencia. El resultado es un sistema distribuido en el que cuatro aplicaciones (generador de turnos, operadores y administrador, pantalla pública y servidor central) trabajan a la vez y solo el servidor accede a la base de datos.
+
+El mayor aprendizaje fue la concurrencia. Al principio parecía suficiente sincronizar métodos en Java, pero cada cliente tiene su propia instancia de los servicios, así que eso no impide que dos ventanillas compitan por el mismo turno. La garantía real quedó en la base de datos, con transacciones y bloqueos de fila (SELECT … FOR UPDATE) y actualizaciones condicionadas al estado del turno. También aprendimos que las reglas de un sistema real aparecen al usarlo: qué hacer con los turnos de días anteriores, con un operador que cierra sesión a medio turno o con un servicio que se desactiva. Resolverlas nos obligó a pensar en estados, en historial y en dejar trazabilidad de cada atención.
+
+Como mejoras futuras identificamos que la pantalla pública reciba los llamados por notificación del servidor (patrón Observer) en lugar de consultar cada 3 segundos, usar los estados TRANSFERIDO y SUSPENDIDO que ya existen en el modelo, y agregar pruebas automatizadas de concurrencia al proyecto. En conjunto, el sistema cumple los requisitos del enunciado y demostró un comportamiento consistente bajo solicitudes simultáneas.
